@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { createBrowserSupabase } from '@/lib/supabase/client'
+import { initMixpanel, track } from '@/lib/mixpanel'
 
 type Mode = 'metric' | 'star'
 type SaveState = 'idle' | 'saving' | 'saved'
@@ -81,6 +82,23 @@ export default function Home() {
   const [copiedKey, setCopiedKey] = useState<Mode | null>(null)
   const [user, setUser] = useState<User | null>(null)
   const pendingSave = useRef<{ rawText: string; metricResult: string; starResult: string | null } | null>(null)
+  const inputStarted = useRef(false)
+  const inputStartedAt = useRef<number | null>(null)
+  const transformAttempt = useRef(0)
+  const transformStartedAt = useRef<number | null>(null)
+  const resultAppearedAt = useRef<number | null>(null)
+
+  // Mixpanel 초기화 — user 상태 변경 시 super props 갱신
+  useEffect(() => {
+    initMixpanel(user?.id)
+  }, [user])
+
+  // output_viewed — 수치 성과 결과가 처음 나타날 때
+  useEffect(() => {
+    if (!metricResult) return
+    resultAppearedAt.current = Date.now()
+    track('output_viewed', { scroll_depth: 0, time_on_result_sec: 0 })
+  }, [metricResult])
 
   useEffect(() => {
     // 로그인 리디렉션 전에 저장했던 상태 복원
@@ -133,6 +151,7 @@ export default function Home() {
   }
 
   async function onCopy(key: Mode, text: string) {
+    track('copy_clicked', { logged_in: !!user, copy_target: key })
     try {
       await navigator.clipboard.writeText(text)
       setCopiedKey(key)
@@ -166,8 +185,27 @@ export default function Home() {
       setError('변환할 업무 기록을 입력해주세요.')
       return
     }
+    transformAttempt.current += 1
+    const isRegenerate = metricResult !== null
+    track('input_submitted', {
+      char_count: rawText.length,
+      word_count: rawText.trim().split(/\s+/).length,
+      has_numbers: /\d/.test(rawText),
+    })
+    if (isRegenerate) {
+      track('transform_regenerated', { reason: 'retry', attempt_count: transformAttempt.current })
+    } else {
+      track('transform_requested', { input_length: rawText.length })
+    }
+    transformStartedAt.current = Date.now()
     try {
       const result = await transform('metric', rawText)
+      const latency_ms = Date.now() - (transformStartedAt.current ?? Date.now())
+      track('transform_completed', {
+        latency_ms,
+        output_length: result.length,
+        star_method_used: false,
+      })
       setMetricResult(result)
       setStarResult(null)
       setSaveState('idle')
@@ -178,8 +216,16 @@ export default function Home() {
 
   async function onTransformStar() {
     if (!metricResult) return
+    track('transform_requested', { input_length: metricResult.length })
+    transformStartedAt.current = Date.now()
     try {
       const result = await transform('star', metricResult)
+      const latency_ms = Date.now() - (transformStartedAt.current ?? Date.now())
+      track('transform_completed', {
+        latency_ms,
+        output_length: result.length,
+        star_method_used: true,
+      })
       setStarResult(result)
       setSaveState('idle')
     } catch (e) {
@@ -189,7 +235,9 @@ export default function Home() {
 
   async function onSave() {
     if (!metricResult) return
+    track('save_attempted', { logged_in: !!user })
     if (!user) {
+      track('login_prompted', { trigger: 'save_click', provider: 'google' })
       sessionStorage.setItem('pending_save', JSON.stringify({ rawText, metricResult, starResult }))
       window.location.href = '/login?next=/'
       return
@@ -200,14 +248,11 @@ export default function Home() {
       const res = await fetch('/api/entries', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          rawText,
-          metricResult,
-          starResult,
-        }),
+        body: JSON.stringify({ rawText, metricResult, starResult }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? '저장 실패')
+      track('save_completed', {})
       setSaveState('saved')
     } catch (e) {
       setSaveState('idle')
@@ -277,7 +322,27 @@ export default function Home() {
             </label>
             <textarea
               value={rawText}
-              onChange={(e) => setRawText(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value
+                if (!inputStarted.current && val.trim()) {
+                  inputStarted.current = true
+                  inputStartedAt.current = Date.now()
+                  track('input_started', {
+                    char_count: val.length,
+                    input_type: val.length < 100 ? 'short' : 'long',
+                  })
+                }
+                if (inputStarted.current && !val.trim()) {
+                  inputStarted.current = false
+                  track('input_cleared', {
+                    time_spent_sec: inputStartedAt.current
+                      ? Math.round((Date.now() - inputStartedAt.current) / 1000)
+                      : 0,
+                  })
+                  inputStartedAt.current = null
+                }
+                setRawText(val)
+              }}
               placeholder={`오늘의 업무 기록
 1. 전일 매출, 전환율, ROAS 등 핵심 성과 지표 확인 및 이상 징후 파악
 2. 현재 운영 중인 캠페인에서 가장 영향 큰 1~2개 요소(소재/타겟/예산) 수정

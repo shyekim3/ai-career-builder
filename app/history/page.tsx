@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { createBrowserSupabase, type Entry } from '@/lib/supabase/client'
+import { track } from '@/lib/mixpanel'
 
 type Status = 'loading' | 'unauthed' | 'loaded' | 'error'
 
@@ -18,8 +19,21 @@ export default function HistoryPage() {
   function toggleOpen(id: string) {
     setOpenIds((prev) => {
       const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
+      const isOpening = !next.has(id)
+      if (isOpening) {
+        const entry = entries.find((e) => e.id === id)
+        if (entry) {
+          track('record_expanded', {
+            record_age_days: Math.floor(
+              (Date.now() - new Date(entry.created_at).getTime()) / 86400000
+            ),
+            has_star: !!entry.star_result,
+          })
+        }
+        next.add(id)
+      } else {
+        next.delete(id)
+      }
       return next
     })
   }
@@ -48,8 +62,16 @@ export default function HistoryPage() {
       const res = await fetch('/api/entries')
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? '불러오기 실패')
-      setEntries(data.entries as Entry[])
+      const loaded = data.entries as Entry[]
+      setEntries(loaded)
       setStatus('loaded')
+      const oldest = loaded.at(-1)
+      track('history_viewed', {
+        record_count: loaded.length,
+        days_since_first_save: oldest
+          ? Math.floor((Date.now() - new Date(oldest.created_at).getTime()) / 86400000)
+          : 0,
+      })
     } catch (e) {
       setError((e as Error).message)
       setStatus('error')
