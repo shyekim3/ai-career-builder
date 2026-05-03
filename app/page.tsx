@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { createBrowserSupabase } from '@/lib/supabase/client'
 
@@ -80,8 +80,22 @@ export default function Home() {
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [copiedKey, setCopiedKey] = useState<Mode | null>(null)
   const [user, setUser] = useState<User | null>(null)
+  const pendingSave = useRef<{ rawText: string; metricResult: string; starResult: string | null } | null>(null)
 
   useEffect(() => {
+    // 로그인 리디렉션 전에 저장했던 상태 복원
+    const saved = sessionStorage.getItem('pending_save')
+    if (saved) {
+      try {
+        const data = JSON.parse(saved) as { rawText: string; metricResult: string; starResult: string | null }
+        setRawText(data.rawText ?? '')
+        setMetricResult(data.metricResult ?? null)
+        setStarResult(data.starResult ?? null)
+        pendingSave.current = data
+        sessionStorage.removeItem('pending_save')
+      } catch {}
+    }
+
     const supabase = createBrowserSupabase()
     supabase.auth.getUser().then(({ data }) => setUser(data.user))
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -89,6 +103,28 @@ export default function Home() {
     })
     return () => sub.subscription.unsubscribe()
   }, [])
+
+  // 로그인 완료 후 pending 저장 자동 실행
+  useEffect(() => {
+    if (!user || !pendingSave.current) return
+    const data = pendingSave.current
+    pendingSave.current = null
+    setSaveState('saving')
+    fetch('/api/entries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.error) throw new Error(json.error)
+        setSaveState('saved')
+      })
+      .catch((e) => {
+        setSaveState('idle')
+        setError((e as Error).message)
+      })
+  }, [user])
 
   async function onSignOut() {
     const supabase = createBrowserSupabase()
@@ -154,6 +190,7 @@ export default function Home() {
   async function onSave() {
     if (!metricResult) return
     if (!user) {
+      sessionStorage.setItem('pending_save', JSON.stringify({ rawText, metricResult, starResult }))
       window.location.href = '/login?next=/'
       return
     }
