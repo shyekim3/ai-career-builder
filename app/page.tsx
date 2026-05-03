@@ -1,65 +1,344 @@
-import Image from "next/image";
+'use client'
+
+import Image from 'next/image'
+import Link from 'next/link'
+import { useEffect, useState } from 'react'
+import type { User } from '@supabase/supabase-js'
+import { createBrowserSupabase } from '@/lib/supabase/client'
+
+type Mode = 'metric' | 'star'
+type SaveState = 'idle' | 'saving' | 'saved'
+
+// 좌측 3행(상/중/하) + 우측 3행(상/중/하) + 상단 가운데 작은 1장.
+// 각 타일이 서로 안 겹치도록 행끼리 y 분리, 좌우끼리 x 분리.
+// 사진 톤: 캐주얼한 스타트업/코워킹 분위기.
+const MOSAIC_TILES = [
+  // 좌측 컬럼
+  { src: 'https://images.unsplash.com/photo-1499750310107-5fef28a66643', top: '-2%',  left: '-3%', width: '16%', aspect: '3 / 4' },
+  { src: 'https://images.unsplash.com/photo-1553877522-43269d4ea984',    top: '36%',  left: '-2%', width: '11%', aspect: '1 / 1' },
+  { src: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085', bottom: '12%', left: '2%', width: '14%', aspect: '5 / 4' },
+  // 상단 가운데 (헤드라인 위쪽 살짝 좌)
+  { src: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173', top: '4%',   left: '24%', width: '9%',  aspect: '4 / 3' },
+  // 우측 컬럼
+  { src: 'https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d', top: '-2%',  right: '-2%', width: '16%', aspect: '3 / 4' },
+  { src: 'https://images.unsplash.com/photo-1573497620053-ea5300f94f21', top: '34%',  right: '-3%', width: '11%', aspect: '1 / 1' },
+  { src: 'https://images.unsplash.com/photo-1542744173-8e7e53415bb0',    bottom: '10%', right: '4%', width: '13%', aspect: '4 / 5' },
+] as const
+
+function BackgroundMosaic() {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[110vh] overflow-hidden hidden md:block"
+    >
+      {MOSAIC_TILES.map((tile, i) => (
+        <div
+          key={i}
+          className="absolute rounded-3xl overflow-hidden opacity-55 shadow-[0_8px_32px_rgba(14,14,16,0.06)]"
+          style={{
+            top: tile.top,
+            bottom: tile.bottom,
+            left: tile.left,
+            right: tile.right,
+            width: tile.width,
+            aspectRatio: tile.aspect,
+          }}
+        >
+          <Image
+            src={`${tile.src}?w=600&q=70&auto=format`}
+            alt=""
+            fill
+            sizes="25vw"
+            className="object-cover blur-[2px] contrast-[1.0]"
+          />
+        </div>
+      ))}
+      {/* 중앙 페이드 — 헤드라인/카드 영역 보호 */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_55%_at_50%_42%,_white_30%,_rgba(255,255,255,0.6)_62%,_transparent_92%)]" />
+      {/* 하단 페이드 — 모자이크가 콘텐츠 영역으로 자연스럽게 사라지도록 */}
+      <div className="absolute inset-x-0 bottom-0 h-[65%] bg-[linear-gradient(to_bottom,_transparent_0%,_rgba(255,255,255,0.55)_30%,_rgba(255,255,255,0.92)_65%,_white_90%)]" />
+    </div>
+  )
+}
 
 export default function Home() {
+  const [rawText, setRawText] = useState('')
+  const [metricResult, setMetricResult] = useState<string | null>(null)
+  const [starResult, setStarResult] = useState<string | null>(null)
+  const [loading, setLoading] = useState<Mode | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [saveState, setSaveState] = useState<SaveState>('idle')
+  const [copiedKey, setCopiedKey] = useState<Mode | null>(null)
+  const [user, setUser] = useState<User | null>(null)
+
+  useEffect(() => {
+    const supabase = createBrowserSupabase()
+    supabase.auth.getUser().then(({ data }) => setUser(data.user))
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+    return () => sub.subscription.unsubscribe()
+  }, [])
+
+  async function onSignOut() {
+    const supabase = createBrowserSupabase()
+    await supabase.auth.signOut()
+    setUser(null)
+  }
+
+  async function onCopy(key: Mode, text: string) {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedKey(key)
+      setTimeout(() => {
+        setCopiedKey((prev) => (prev === key ? null : prev))
+      }, 1500)
+    } catch {
+      setError('클립보드 복사에 실패했습니다.')
+    }
+  }
+
+  async function transform(mode: Mode, text: string) {
+    setLoading(mode)
+    setError(null)
+    try {
+      const res = await fetch('/api/transform', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode, text }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '요청 실패')
+      return data.result as string
+    } finally {
+      setLoading(null)
+    }
+  }
+
+  async function onTransformMetric() {
+    if (!rawText.trim()) {
+      setError('변환할 업무 기록을 입력해주세요.')
+      return
+    }
+    try {
+      const result = await transform('metric', rawText)
+      setMetricResult(result)
+      setStarResult(null)
+      setSaveState('idle')
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  async function onTransformStar() {
+    if (!metricResult) return
+    try {
+      const result = await transform('star', metricResult)
+      setStarResult(result)
+      setSaveState('idle')
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  async function onSave() {
+    if (!metricResult) return
+    if (!user) {
+      window.location.href = '/login?next=/'
+      return
+    }
+    setSaveState('saving')
+    setError(null)
+    try {
+      const res = await fetch('/api/entries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rawText,
+          metricResult,
+          starResult,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '저장 실패')
+      setSaveState('saved')
+    } catch (e) {
+      setSaveState('idle')
+      setError((e as Error).message)
+    }
+  }
+
+  const userLabel =
+    user?.user_metadata?.name ??
+    user?.user_metadata?.full_name ??
+    user?.email ??
+    null
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="relative isolate flex flex-col flex-1">
+      <BackgroundMosaic />
+      <header className="sticky top-0 z-10 flex justify-center pt-6 pb-2">
+        <div className="pill px-2 py-1 text-sm font-medium text-mono-700 flex items-center gap-1">
+          <Link
+            href="/history"
+            className="px-3 py-1.5 rounded-full hover:bg-mono-100 transition-colors text-mono-700"
+          >
+            저장 기록
+          </Link>
+          {user ? (
+            <>
+              <span className="px-3 py-1.5 text-mono-400 truncate max-w-[12rem]">
+                {userLabel}
+              </span>
+              <button
+                onClick={onSignOut}
+                className="px-3 py-1.5 rounded-full hover:bg-mono-100 transition-colors text-mono-700"
+              >
+                로그아웃
+              </button>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              className="px-3 py-1.5 rounded-full bg-mono-900 text-mono-50 hover:bg-mono-700 transition-colors"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+              로그인
+            </Link>
+          )}
+        </div>
+      </header>
+
+      <main className="flex-1 w-full max-w-6xl mx-auto px-6 pb-24">
+        <section className="text-center pt-16 pb-14 sm:pt-24 sm:pb-20">
+          <p className="text-xs sm:text-sm uppercase tracking-[0.28em] text-mono-400 mb-5 sm:mb-6">
+            AI Career Builder
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+          <h1 className="text-4xl sm:text-6xl font-semibold tracking-tight leading-[1.1] text-mono-900">
+            일상 기록을 성과로
+          </h1>
+          <p className="mt-6 text-base sm:text-lg text-mono-700 max-w-xl mx-auto">
+            업무 기록을 수치 중심의 성과 문장으로 바꾸고,
+            <br className="hidden sm:block" />
+            필요할 때 STAR 기법으로 한 번 더 다듬어드립니다.
+          </p>
+        </section>
+
+        <section className="grid gap-6 sm:gap-7 md:grid-cols-[1.2fr_1fr] md:auto-rows-min">
+          <div className="panel-strong p-6 sm:p-7 md:row-span-2">
+            <label className="block text-xs font-medium uppercase tracking-wider text-mono-400 mb-3">
+              업무 기록 입력
+            </label>
+            <textarea
+              value={rawText}
+              onChange={(e) => setRawText(e.target.value)}
+              placeholder={`오늘의 업무 기록
+1. 전일 매출, 전환율, ROAS 등 핵심 성과 지표 확인 및 이상 징후 파악
+2. 현재 운영 중인 캠페인에서 가장 영향 큰 1~2개 요소(소재/타겟/예산) 수정
+3. 커머스 페이지 또는 상세페이지 1개 개선 (배너, 구조, 카피 중 한 가지 집중)
+4. 디자이너, MD, 에이전시와 협업 커뮤니케이션 1~2건 진행
+5. 경쟁사 및 트렌드 빠르게 체크하여 참고 인사이트 확보
+6. 오늘 실행한 작업 결과 및 인사이트 간단히 정리 (리포트 작성)`}
+              className="w-full h-64 sm:h-80 resize-none bg-transparent text-base leading-7 text-mono-900 placeholder-mono-400 outline-none"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+            <div className="mt-5 flex items-center justify-between gap-3">
+              <span className="text-xs text-mono-400">
+                {rawText.length} / 5000
+              </span>
+              <button
+                onClick={onTransformMetric}
+                disabled={loading !== null}
+                className="px-5 py-2.5 rounded-full bg-mono-900 text-mono-50 text-sm font-medium hover:bg-mono-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {loading === 'metric' ? '변환 중…' : '성과 변환'}
+              </button>
+            </div>
+            {error && (
+              <p className="mt-4 text-sm text-mono-700 bg-mono-100 px-4 py-2 rounded-lg">
+                {error}
+              </p>
+            )}
+          </div>
+
+          <div className="panel p-6 sm:p-7 min-h-[14rem]">
+            <div className="flex items-center justify-between mb-3 gap-2">
+              <label className="block text-xs font-medium uppercase tracking-wider text-mono-400">
+                수치 성과 문장
+              </label>
+              {metricResult && (
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                  <button
+                    onClick={() => onCopy('metric', metricResult)}
+                    className="px-3.5 py-1.5 rounded-full bg-white/70 border border-mono-200 text-xs font-medium text-mono-900 hover:bg-white transition-colors"
+                  >
+                    {copiedKey === 'metric' ? '복사됨 ✓' : '복사'}
+                  </button>
+                  <button
+                    onClick={onTransformStar}
+                    disabled={loading !== null}
+                    className="px-3.5 py-1.5 rounded-full bg-white/70 border border-mono-200 text-xs font-medium text-mono-900 hover:bg-white transition-colors disabled:opacity-40"
+                  >
+                    {loading === 'star' ? 'STAR 정리 중…' : 'STAR 기법으로 교정'}
+                  </button>
+                  <button
+                    onClick={onSave}
+                    disabled={saveState === 'saving'}
+                    className="px-3.5 py-1.5 rounded-full bg-mono-900 text-mono-50 text-xs font-medium hover:bg-mono-700 transition-colors disabled:opacity-40"
+                  >
+                    {saveState === 'saving'
+                      ? '저장 중…'
+                      : saveState === 'saved'
+                      ? '저장됨 ✓'
+                      : user
+                      ? '저장'
+                      : '로그인 후 저장'}
+                  </button>
+                </div>
+              )}
+            </div>
+            {metricResult ? (
+              <pre className="whitespace-pre-wrap text-sm leading-7 text-mono-900 font-sans">
+                {metricResult}
+              </pre>
+            ) : (
+              <p className="text-sm text-mono-400">
+                왼쪽에 업무 기록을 입력하고 변환 버튼을 누르면 결과가 여기에 표시됩니다.
+              </p>
+            )}
+          </div>
+
+          <div className="panel p-6 sm:p-7 min-h-[14rem]">
+            <div className="flex items-center justify-between mb-3 gap-2">
+              <label className="block text-xs font-medium uppercase tracking-wider text-mono-400">
+                STAR 구조 결과
+              </label>
+              {starResult && (
+                <button
+                  onClick={() => onCopy('star', starResult)}
+                  className="px-3.5 py-1.5 rounded-full bg-white/70 border border-mono-200 text-xs font-medium text-mono-900 hover:bg-white transition-colors"
+                >
+                  {copiedKey === 'star' ? '복사됨 ✓' : '복사'}
+                </button>
+              )}
+            </div>
+            {starResult ? (
+              <pre className="whitespace-pre-wrap text-sm leading-7 text-mono-900 font-sans">
+                {starResult}
+              </pre>
+            ) : (
+              <p className="text-sm text-mono-400">
+                수치 성과 문장이 만들어진 뒤 ‘STAR 기법으로 교정’ 버튼을 누르면 4단 구조로 정리해드립니다.
+              </p>
+            )}
+          </div>
+        </section>
       </main>
+
+      <footer className="border-t border-mono-200/60 mt-auto">
+        <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between text-xs text-mono-400">
+          <span>AI Career Builder</span>
+          <span>Powered by OpenRouter</span>
+        </div>
+      </footer>
     </div>
-  );
+  )
 }

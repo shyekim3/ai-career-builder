@@ -1,26 +1,70 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@theme {
+  --color-mono-50:  #fafafa;
+  --color-mono-100: #f1f1f2;
+  --color-mono-200: #d9d9dc;
+  --color-mono-400: #8e8e93;
+  --color-mono-700: #3a3a3d;
+  --color-mono-900: #0e0e10;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --shadow-card:    0 1px 2px rgba(14,14,16,0.04), 0 8px 24px rgba(14,14,16,0.06);
+  --shadow-card-lg: 0 2px 4px rgba(14,14,16,0.05), 0 20px 60px rgba(14,14,16,0.10);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html, body {
+  color: var(--color-mono-900);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background:
+    radial-gradient(900px 500px at 8% -8%,  rgba(217,217,220,0.45), transparent 60%),
+    radial-gradient(700px 400px at 108% 8%, rgba(241,241,242,0.65), transparent 60%),
+    linear-gradient(180deg, #ffffff 0%, #fafafa 60%, #f1f1f2 100%);
+  background-attachment: fixed;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(14px) saturate(130%);
+  -webkit-backdrop-filter: blur(14px) saturate(130%);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: var(--shadow-card), inset 0 0 0 1px rgba(14,14,16,0.06);
+  border-radius: 1.25rem;
+}
+
+.glass-strong {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow-card-lg);
+  border-radius: 1.5rem;
+}
+
+.pill {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: var(--shadow-card);
+  border-radius: 9999px;
+}
+
+/* 가독성 우선 — 입력/결과 카드 전용 (불투명 흰색) */
+.panel {
+  background: #ffffff;
+  border: 1px solid rgba(14, 14, 16, 0.06);
+  box-shadow: var(--shadow-card);
+  border-radius: 1.25rem;
+}
+
+.panel-strong {
+  background: #ffffff;
+  border: 1px solid rgba(14, 14, 16, 0.05);
+  box-shadow: var(--shadow-card-lg);
+  border-radius: 1.5rem;
 }
