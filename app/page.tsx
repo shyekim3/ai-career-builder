@@ -25,15 +25,15 @@ type Tile = {
 // 사진 톤: 캐주얼한 스타트업/코워킹 분위기.
 const MOSAIC_TILES = [
   // 좌측 컬럼
-  { src: 'https://images.unsplash.com/photo-1499750310107-5fef28a66643', top: '-2%',  left: '-3%', width: '16%', aspect: '3 / 4' },
-  { src: 'https://images.unsplash.com/photo-1553877522-43269d4ea984',    top: '36%',  left: '-2%', width: '11%', aspect: '1 / 1' },
-  { src: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085', bottom: '12%', left: '2%', width: '14%', aspect: '5 / 4' },
-  // 상단 가운데 (헤드라인 위쪽 살짝 좌)
-  { src: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173', top: '4%',   left: '24%', width: '9%',  aspect: '4 / 3' },
+  { src: 'https://images.unsplash.com/photo-1510074468346-504b4d8a8630', top: '-2%',    left: '-3%', width: '16%', aspect: '3 / 4' },
+  { src: 'https://images.unsplash.com/photo-1616587226157-48e49175ee20', top: '36%',    left: '-2%', width: '11%', aspect: '1 / 1' },
+  { src: 'https://images.unsplash.com/photo-1609761973820-17fe079a78dc', bottom: '12%', left: '2%',  width: '14%', aspect: '5 / 4' },
+  // 상단 가운데
+  { src: 'https://images.unsplash.com/photo-1456324504439-367cee3b3c32', top: '4%',     left: '24%', width: '9%',  aspect: '4 / 3' },
   // 우측 컬럼
-  { src: 'https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d', top: '-2%',  right: '-2%', width: '16%', aspect: '3 / 4' },
-  { src: 'https://images.unsplash.com/photo-1573497620053-ea5300f94f21', top: '34%',  right: '-3%', width: '11%', aspect: '1 / 1' },
-  { src: 'https://images.unsplash.com/photo-1542744173-8e7e53415bb0',    bottom: '10%', right: '4%', width: '13%', aspect: '4 / 5' },
+  { src: 'https://images.unsplash.com/photo-1587554801471-37976a256db0', top: '-2%',    right: '-2%', width: '16%', aspect: '3 / 4' },
+  { src: 'https://images.unsplash.com/photo-1773332598413-a6d5279d1ae8', top: '34%',    right: '-3%', width: '11%', aspect: '1 / 1' },
+  { src: 'https://images.unsplash.com/photo-1499750310107-5fef28a66643', bottom: '10%', right: '4%',  width: '13%', aspect: '4 / 5' },
 ] satisfies Tile[]
 
 function BackgroundMosaic() {
