@@ -9,6 +9,16 @@ import { createBrowserSupabase } from '@/lib/supabase/client'
 type Mode = 'metric' | 'star'
 type SaveState = 'idle' | 'saving' | 'saved'
 
+type Tile = {
+  src: string
+  top?: string
+  bottom?: string
+  left?: string
+  right?: string
+  width: string
+  aspect: string
+}
+
 // 좌측 3행(상/중/하) + 우측 3행(상/중/하) + 상단 가운데 작은 1장.
 // 각 타일이 서로 안 겹치도록 행끼리 y 분리, 좌우끼리 x 분리.
 // 사진 톤: 캐주얼한 스타트업/코워킹 분위기.
@@ -23,7 +33,7 @@ const MOSAIC_TILES = [
   { src: 'https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d', top: '-2%',  right: '-2%', width: '16%', aspect: '3 / 4' },
   { src: 'https://images.unsplash.com/photo-1573497620053-ea5300f94f21', top: '34%',  right: '-3%', width: '11%', aspect: '1 / 1' },
   { src: 'https://images.unsplash.com/photo-1542744173-8e7e53415bb0',    bottom: '10%', right: '4%', width: '13%', aspect: '4 / 5' },
-] as const
+] satisfies Tile[]
 
 function BackgroundMosaic() {
   return (
