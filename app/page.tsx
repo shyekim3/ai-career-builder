@@ -275,7 +275,7 @@ export default function Home() {
             href="/history"
             className="px-3 py-1.5 rounded-full hover:bg-mono-100 transition-colors text-mono-700"
           >
-            저장 기록
+            저장된 기록
           </Link>
           {user ? (
             <>
@@ -344,12 +344,12 @@ export default function Home() {
                 setRawText(val)
               }}
               placeholder={`오늘의 업무 기록
-1. 전일 매출, 전환율, ROAS 등 핵심 성과 지표 확인 및 이상 징후 파악
-2. 현재 운영 중인 캠페인에서 가장 영향 큰 1~2개 요소(소재/타겟/예산) 수정
-3. 커머스 페이지 또는 상세페이지 1개 개선 (배너, 구조, 카피 중 한 가지 집중)
-4. 디자이너, MD, 에이전시와 협업 커뮤니케이션 1~2건 진행
-5. 경쟁사 및 트렌드 빠르게 체크하여 참고 인사이트 확보
-6. 오늘 실행한 작업 결과 및 인사이트 간단히 정리 (리포트 작성)`}
+1. 주요 화면 UX 이슈 확인 및 사용자 피드백 리뷰 (데이터/VOC 121건)
+2. 개선이 필요한 플로우 1~2개 선정 후 와이어프레임 또는 시안 작업
+3. 개발자 또는 PM과 스펙 협의 및 디자인 의도 공유 (1~2건)
+4. 디자인 시스템 컴포넌트 점검 또는 신규 컴포넌트 정의
+5. 경쟁 서비스 또는 레퍼런스 빠르게 탐색하여 인사이트 메모
+6. 오늘 작업한 디자인 결과물 및 다음 액션 간단히 정리`}
               className="w-full h-64 sm:h-80 resize-none bg-transparent text-base leading-7 text-mono-900 placeholder-mono-400 outline-none"
             />
             <div className="mt-5 flex items-center justify-between gap-3">

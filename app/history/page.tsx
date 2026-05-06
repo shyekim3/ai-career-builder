@@ -107,13 +107,13 @@ export default function HistoryPage() {
             </svg>
             홈
           </Link>
-          <span className="px-3 py-1.5">저장 기록</span>
+          <span className="px-3 py-1.5">저장된 기록</span>
         </div>
       </header>
 
       <main className="flex-1 w-full max-w-4xl mx-auto px-6 pt-12 pb-24">
         <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-mono-900 mb-2">
-          저장 기록
+          저장된 기록
         </h1>
         <p className="text-sm text-mono-400 mb-10">
           {user
