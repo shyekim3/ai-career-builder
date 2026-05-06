@@ -8,9 +8,9 @@ type Status = 'idle' | 'submitting' | 'success' | 'error'
 
 const RATING_OPTIONS: { value: Rating; label: string }[] = [
   { value: 1, label: '별로' },
-  { value: 2, label: '보통' },
-  { value: 3, label: '꽤' },
-  { value: 4, label: '많이' },
+  { value: 2, label: '그럭저럭' },
+  { value: 3, label: '괜찮아요' },
+  { value: 4, label: '좋아요' },
 ]
 
 export default function FeedbackButton() {
@@ -168,7 +168,7 @@ export default function FeedbackButton() {
               <form onSubmit={onSubmit} className="space-y-5">
                 <fieldset>
                   <legend className="block text-sm font-medium text-mono-900">
-                    이 기능이 얼마나 도움이 되었나요?
+                    이 서비스를 사용해보니 어떠셨나요?
                     <span className="ml-1 text-mono-400">*</span>
                   </legend>
                   <div className="mt-3 grid grid-cols-4 gap-2">
