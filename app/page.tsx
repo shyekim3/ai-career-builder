@@ -441,7 +441,7 @@ export default function Home() {
           </a>
           <nav className="nav-links" aria-label="Main">
             <Link href="/history" onClick={onClickHistory}>
-              커리어 기록함
+              기록함
             </Link>
             {user ? (
               <span className="nav-avatar show">
@@ -460,7 +460,7 @@ export default function Home() {
                   setModalOpen(true)
                 }}
               >
-                Login
+                로그인
               </button>
             )}
           </nav>

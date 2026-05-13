@@ -527,7 +527,7 @@ export default function HistoryPage() {
           </Link>
           <nav className="nav-links" aria-label="Main">
             <Link href="/history" className="active">
-              커리어 기록함
+              기록함
             </Link>
             {user ? (
               <span className="nav-avatar show">
@@ -539,7 +539,7 @@ export default function HistoryPage() {
               </span>
             ) : (
               <Link href="/login?next=/history" className="nav-cta">
-                Login
+                로그인
               </Link>
             )}
           </nav>
@@ -556,7 +556,7 @@ export default function HistoryPage() {
         className="flex-1"
       >
         <div className="page-head">
-          <h1 style={{ fontSize: 44 }}>커리어 기록함</h1>
+          <h1 style={{ fontSize: 44 }}>기록함</h1>
           <p className="lede" style={{ marginTop: 12, maxWidth: 560 }}>
             저장한 성과 문장을 한곳에서 관리하세요. 역량별 자동 분류와 프로젝트별
             <br />
