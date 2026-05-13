@@ -609,7 +609,7 @@ export default function HistoryPage() {
               로그인이 필요합니다.
             </p>
             <div className="btn-row">
-              <Link href="/login?next=/history" className="btn btn-primary">
+              <Link href="/login?next=/history" className="btn btn-secondary">
                 Google로 로그인
               </Link>
               <Link href="/" className="btn btn-ghost">
@@ -634,7 +634,7 @@ export default function HistoryPage() {
               쌓입니다.
             </p>
             <div className="btn-row">
-              <Link href="/#hero" className="btn btn-primary">
+              <Link href="/#hero" className="btn btn-secondary">
                 첫 기록 남기기
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M5 12h14" />

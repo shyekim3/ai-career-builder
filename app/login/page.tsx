@@ -65,7 +65,7 @@ function LoginInner() {
           <button
             onClick={onGoogle}
             disabled={busy}
-            className="w-full px-5 py-3 rounded-full bg-mono-900 text-mono-50 text-sm font-medium hover:bg-mono-700 transition-colors disabled:opacity-40"
+            className="w-full px-5 py-3 rounded-full bg-white text-mono-900 border border-mono-300 text-sm font-medium hover:border-mono-900 hover:bg-mono-50 transition-colors disabled:opacity-40"
           >
             {busy ? '이동 중…' : 'Google 로 계속하기'}
           </button>

@@ -927,7 +927,7 @@ export default function Home() {
               지금 한 줄만 적어보세요. AI가 성과 문장으로 정리해드릴게요.
             </p>
             <div className="closing-cta">
-              <a href="#top" className="btn btn-primary" onClick={onTopCta}>
+              <a href="#top" className="btn btn-secondary" onClick={onTopCta}>
                 첫 기록 남기기
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 19V5" />

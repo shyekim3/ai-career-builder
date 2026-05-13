@@ -94,7 +94,7 @@ export default function FeedbackButton() {
         type="button"
         onClick={onOpenClick}
         aria-label="의견 남기기"
-        className="fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-40 inline-flex items-center gap-2 rounded-full bg-mono-900 text-mono-50 px-4 py-3 sm:px-5 sm:py-3 text-sm font-medium shadow-[0_8px_24px_rgba(14,14,16,0.18)] hover:bg-orange transition-colors"
+        className="fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-40 inline-flex items-center gap-2 rounded-full bg-white text-mono-900 border border-mono-300 px-4 py-3 sm:px-5 sm:py-3 text-sm font-medium shadow-[0_8px_24px_rgba(14,14,16,0.12)] hover:border-mono-900 hover:bg-mono-50 transition-colors"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -262,7 +262,7 @@ export default function FeedbackButton() {
                   <button
                     type="submit"
                     disabled={status === 'submitting' || !rating}
-                    className="px-5 py-2.5 rounded-full bg-mono-900 text-mono-50 text-sm font-medium hover:bg-orange transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-5 py-2.5 rounded-full bg-white text-mono-900 border border-mono-300 text-sm font-medium hover:border-mono-900 hover:bg-mono-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {status === 'submitting' ? '제출 중…' : '의견 남기기'}
                   </button>

@@ -146,11 +146,12 @@ body {
 .cb-landing .nav-links a:hover { color: var(--ink-900); }
 .cb-landing .nav-links a.active { color: var(--ink-900); font-weight: 600; }
 .cb-landing .nav-cta {
-  background: var(--ink-900); color: var(--paper);
-  padding: 8px 16px; border-radius: 999px; font-size: 14px; font-weight: 600;
-  transition: background .15s ease;
+  background: transparent; color: var(--ink-900);
+  border: 1px solid var(--ink-300);
+  padding: 7px 16px; border-radius: 999px; font-size: 14px; font-weight: 600;
+  transition: border-color .15s ease, background .15s ease;
 }
-.cb-landing .nav-cta:hover { background: var(--orange); }
+.cb-landing .nav-cta:hover { border-color: var(--ink-900); background: var(--ink-50); }
 .cb-landing .nav-avatar {
   display: none; align-items: center; gap: 8px;
   padding: 4px 12px 4px 4px; border-radius: 999px; background: var(--ink-100);
@@ -173,6 +174,17 @@ body {
 .cb-landing .btn-primary { background: var(--ink-900); color: white; box-shadow: var(--shadow-sm); }
 .cb-landing .btn-primary:hover { background: var(--orange); transform: translateY(-1px); box-shadow: var(--shadow-md); }
 .cb-landing .btn-primary:disabled { opacity: 0.6; cursor: progress; transform: none; }
+/* Secondary — design.md: 아웃라인 스타일 (Border만). Primary 는 "성과 문장으로 바꾸기" 한 곳에만 쓰고
+   저장/로그인/내보내기/의견 등 그 외 액션은 모두 secondary 톤. */
+.cb-landing .btn-secondary {
+  background: transparent; color: var(--ink-900);
+  border: 1px solid var(--ink-300);
+}
+.cb-landing .btn-secondary:hover {
+  border-color: var(--ink-900); background: var(--ink-50);
+  transform: translateY(-1px);
+}
+.cb-landing .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .cb-landing .btn-ghost { background: var(--ink-100); color: var(--ink-700); }
 .cb-landing .btn-ghost:hover { background: var(--ink-200); }
 
@@ -372,16 +384,18 @@ body {
 }
 
 .cb-landing .cta-actions { margin-top: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* 결과 카드 액션 버튼은 모두 secondary 톤(outline)으로 통일.
+   ".primary" variant 도 검정 채움을 버리고 outline 으로 — 메인 CTA(성과 문장으로 바꾸기)와 위계를 구분. */
 .cb-landing .cta-action-btn {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 14px; border-radius: 999px; font-size: 13px; font-weight: 600;
-  background: var(--ink-100); color: var(--ink-900);
-  transition: background .15s ease, color .15s ease;
+  padding: 7px 14px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  background: transparent; color: var(--ink-900);
+  border: 1px solid var(--ink-300);
+  transition: border-color .15s ease, background .15s ease, color .15s ease;
 }
-.cb-landing .cta-action-btn:hover { background: var(--ink-200); }
-.cb-landing .cta-action-btn.primary { background: var(--ink-900); color: var(--paper); }
-.cb-landing .cta-action-btn.primary:hover { background: var(--orange); }
-.cb-landing .cta-action-btn.primary:disabled { background: var(--ink-200); color: var(--ink-500); cursor: default; }
+.cb-landing .cta-action-btn:hover { border-color: var(--ink-900); background: var(--ink-50); }
+.cb-landing .cta-action-btn:disabled { opacity: .5; cursor: not-allowed; }
+.cb-landing .cta-action-btn.primary { /* alias — secondary 와 동일 톤 */ }
 /* 후속 질문 카드 — AI 응답이 needs_info 일 때 결과 카드 자리에 표시.
    결과(.cta-result-body)와 톤 일치하되 살짝 차분한 ink-50 분기 박스 사용. */
 .cb-landing .cta-followup-card {
@@ -916,8 +930,11 @@ body {
 }
 .cb-landing .metric-action.cancel { background: transparent; color: var(--ink-500); }
 .cb-landing .metric-action.cancel:hover:not(:disabled) { color: var(--ink-900); }
-.cb-landing .metric-action.save { background: var(--orange); color: var(--paper); }
-.cb-landing .metric-action.save:hover:not(:disabled) { background: #e44b30; }
+.cb-landing .metric-action.save {
+  background: transparent; color: var(--ink-900);
+  border: 1px solid var(--ink-300);
+}
+.cb-landing .metric-action.save:hover:not(:disabled) { border-color: var(--ink-900); background: var(--ink-50); }
 .cb-landing .metric-action:disabled { opacity: .5; cursor: not-allowed; }
 .cb-landing .entry-chips { display: flex; gap: 6px; flex-wrap: wrap; }
 
@@ -1005,12 +1022,13 @@ body {
 
 .cb-landing .btn-export {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 9px 14px; border-radius: 999px;
-  background: var(--ink-900); color: var(--paper);
+  padding: 8px 14px; border-radius: 999px;
+  background: transparent; color: var(--ink-900);
+  border: 1px solid var(--ink-300);
   font-size: 13px; font-weight: 600;
-  transition: background .15s ease, transform .15s ease;
+  transition: border-color .15s ease, background .15s ease, transform .15s ease;
 }
-.cb-landing .btn-export:hover { background: #1f1f22; transform: translateY(-1px); }
+.cb-landing .btn-export:hover { border-color: var(--ink-900); background: var(--ink-50); transform: translateY(-1px); }
 
 .cb-landing .export-wrap { position: relative; }
 .cb-landing .export-menu {
@@ -1107,21 +1125,25 @@ body {
 .cb-landing .date-action.today:hover { background: var(--ink-200); }
 .cb-landing .date-action.cancel { background: transparent; color: var(--ink-500); }
 .cb-landing .date-action.cancel:hover { color: var(--ink-900); }
-.cb-landing .date-action.save { background: var(--ink-900); color: var(--paper); }
-.cb-landing .date-action.save:hover:not(:disabled) { background: #1f1f22; }
+.cb-landing .date-action.save {
+  background: transparent; color: var(--ink-900);
+  border: 1px solid var(--ink-300);
+}
+.cb-landing .date-action.save:hover:not(:disabled) { border-color: var(--ink-900); background: var(--ink-50); }
 .cb-landing .date-action:disabled { opacity: .5; cursor: progress; }
 
-/* ── 프로젝트명 저장 버튼 ───────────────── */
+/* ── 프로젝트명 저장 버튼 (secondary 톤) ───────────────── */
 .cb-landing .project-save-btn {
-  padding: 6px 12px; border-radius: 8px;
-  background: var(--orange); color: var(--paper);
+  padding: 5px 12px; border-radius: 8px;
+  background: transparent; color: var(--ink-900);
+  border: 1px solid var(--ink-300);
   font-size: 12px; font-weight: 600; letter-spacing: -.01em;
-  transition: background .12s ease, transform .12s ease, opacity .12s ease;
+  transition: border-color .12s ease, background .12s ease, opacity .12s ease;
   white-space: nowrap;
 }
-.cb-landing .project-save-btn:hover:not(:disabled) { background: #e44b30; }
+.cb-landing .project-save-btn:hover:not(:disabled) { border-color: var(--ink-900); background: var(--ink-50); }
 .cb-landing .project-save-btn:disabled {
-  background: var(--ink-200); color: var(--ink-500); cursor: not-allowed;
+  opacity: .45; cursor: not-allowed;
 }
 
 /* ── 선택 / 일괄 내보내기 바 ───────────────── */
