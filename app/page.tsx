@@ -49,6 +49,7 @@ export default function Home() {
   const [toastMsg, setToastMsg] = useState('저장되었습니다')
   const [toastVisible, setToastVisible] = useState(false)
   const [toastCta, setToastCta] = useState<{ label: string; href: string } | null>(null)
+  const [navScrolled, setNavScrolled] = useState(false)
 
   const pendingSave = useRef<{
     rawText: string
@@ -78,6 +79,40 @@ export default function Home() {
     el.style.height = 'auto'
     el.style.height = el.scrollHeight + 'px'
   }, [rawText])
+
+  // 스크롤 50vh 이상이면 nav 에 scrolled 상태(글래스 배경) 활성화.
+  useEffect(() => {
+    function onScroll() {
+      setNavScrolled(window.scrollY > window.innerHeight * 0.5)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    onScroll()
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  // 각 섹션 헤드 + 카드들이 viewport 에 들어오면 in-view 클래스 토글 (fade-up 트리거).
+  useEffect(() => {
+    const targets = document.querySelectorAll(
+      '.cb-landing--snap .section-head, ' +
+      '.cb-landing--snap .closing .cb-container, ' +
+      '.cb-landing--snap .problem-card, ' +
+      '.cb-landing--snap .feature-card'
+    )
+    if (!targets.length) return
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add('in-view')
+            io.unobserve(e.target)
+          }
+        })
+      },
+      { threshold: 0.15, rootMargin: '0px 0px -8% 0px' }
+    )
+    targets.forEach((t) => io.observe(t))
+    return () => io.disconnect()
+  }, [])
 
 
   // 로그인 후 복귀 시 pending_save 복원
@@ -402,8 +437,8 @@ export default function Home() {
     : '성과 문장으로 바꾸기'
 
   return (
-    <div className="cb-landing flex-1 flex flex-col">
-      <header className="nav">
+    <div className="cb-landing cb-landing--snap flex-1 flex flex-col">
+      <header className={`nav ${navScrolled ? 'scrolled' : ''}`}>
         <div className="nav-inner">
           <a href="#top" className="brand" aria-label="Career Builder">
             <span className="brand-name">Career Builder</span>
@@ -450,7 +485,7 @@ export default function Home() {
           />
           <div className="hero-grid">
             <div className="hero-copy">
-              <h1 style={{ fontSize: 'clamp(32px, 6vw, 52px)' }}>
+              <h1 style={{ fontSize: 'clamp(32px, 6vw, 52px)', fontWeight: 800 }}>
                 오늘 한 일을,
                 <br />
                 내일의 <span className="accent">커리어 문장</span>으로.
@@ -660,7 +695,6 @@ export default function Home() {
         <section className="problem" id="problem">
           <div className="cb-container">
             <div className="section-head">
-              <span className="eyebrow">커리어 기록의 부담</span>
               <h2>
                 열심히 일했는데,
                 <br />
@@ -674,43 +708,94 @@ export default function Home() {
 
             <div className="problem-grid">
               <article className="problem-card">
-                <span className="problem-num">PROBLEM 01</span>
+                <div className="problem-mock pm-memory" aria-hidden>
+                  <div className="pm-note">
+                    <span className="pm-note-date">5월 6일</span>
+                    <span className="pm-note-line accent" />
+                    <span className="pm-note-line" />
+                  </div>
+                  <div className="pm-note pm-fade-1">
+                    <span className="pm-note-date">3월 12일</span>
+                    <span className="pm-note-line" />
+                    <span className="pm-note-line short" />
+                  </div>
+                  <div className="pm-note pm-fade-2">
+                    <span className="pm-note-date">1월 4일</span>
+                    <span className="pm-note-line" />
+                  </div>
+                  <span className="pm-mark">?</span>
+                </div>
+                <span className="problem-num">Problem 01</span>
                 <h3 className="problem-title">기억이 나지 않아요</h3>
                 <p className="problem-desc">
                   이직이나 지원 시점이 되어서야 “내가 그동안 뭘 했지?”를 다시 떠올리려 합니다.
                   대부분의 작은 성과들은 이미 흩어진 뒤죠.
                 </p>
-                <div className="problem-quote">“3개월 전에 했던 그 프로젝트, 무슨 결과였더라…”</div>
               </article>
 
               <article className="problem-card">
-                <span className="problem-num">PROBLEM 02</span>
+                <div className="problem-mock pm-metric" aria-hidden>
+                  <div className="pm-row">
+                    <span className="pm-row-label">오늘 한 일</span>
+                    <div className="pm-row-body">
+                      <span className="pm-row-text">회의했음</span>
+                    </div>
+                  </div>
+                  <div className="pm-row pm-row-out">
+                    <span className="pm-row-label">성과</span>
+                    <div className="pm-row-body pm-row-body-blank">
+                      <span className="pm-blank-line" />
+                      <span className="pm-blank-line short" />
+                    </div>
+                  </div>
+                  <span className="pm-mark">?</span>
+                </div>
+                <span className="problem-num">Problem 02</span>
                 <h3 className="problem-title">수치화가 어려워요</h3>
                 <p className="problem-desc">
                   업무를 ‘성과’와 ‘지표’ 중심으로 표현하는 일은 생각보다 어렵습니다.
                   “회의했음” 한 줄을 어떻게 임팩트 있게 적어야 할지 막막합니다.
                 </p>
-                <div className="problem-quote">“그냥… 회의했다고만 쓰면 너무 약한 것 같은데?”</div>
               </article>
 
               <article className="problem-card">
-                <span className="problem-num">PROBLEM 03</span>
+                <div className="problem-mock pm-pile" aria-hidden>
+                  <div className="pm-cal">
+                    {Array.from({ length: 28 }).map((_, i) => {
+                      const filled = i === 4
+                      const accent = i === 4
+                      return (
+                        <span
+                          key={i}
+                          className={`pm-cal-cell ${filled ? 'filled' : ''} ${accent ? 'accent' : ''}`}
+                        />
+                      )
+                    })}
+                  </div>
+                  <div className="pm-cal-caption">기록한 날 1 · 안 한 날 27</div>
+                </div>
+                <span className="problem-num">Problem 03</span>
                 <h3 className="problem-title">정리가 매일 밀려요</h3>
                 <p className="problem-desc">
                   하루가 끝나면 피곤해서 기록을 미루게 되고, 며칠 후에는 무엇을 적어야 할지조차 잊어버립니다.
                   기록의 부담이 결국 기록을 포기하게 만듭니다.
                 </p>
-                <div className="problem-quote">“내일부터 적어야지” × 60일</div>
               </article>
 
               <article className="problem-card">
-                <span className="problem-num">PROBLEM 04</span>
+                <div className="problem-mock pm-tags" aria-hidden>
+                  <span className="pm-tag pm-tag-1">협업?</span>
+                  <span className="pm-tag pm-tag-2 accent">문제 해결?</span>
+                  <span className="pm-tag pm-tag-3">리서치?</span>
+                  <span className="pm-tag pm-tag-4">커뮤니케이션?</span>
+                  <span className="pm-tag pm-tag-5">···</span>
+                </div>
+                <span className="problem-num">Problem 04</span>
                 <h3 className="problem-title">역량 연결이 안 돼요</h3>
                 <p className="problem-desc">
                   오늘 한 일이 어떤 커리어 강점으로 이어지는지 알기 어렵습니다.
                   정리되지 않은 기록은 ‘나의 역량 지도’가 되지 못한 채 흩어집니다.
                 </p>
-                <div className="problem-quote">“이게 협업 능력인 건가, 문제 해결인 건가?”</div>
               </article>
             </div>
           </div>
@@ -719,7 +804,6 @@ export default function Home() {
         <section className="solution" id="solution">
           <div className="cb-container">
             <div className="section-head center">
-              <span className="eyebrow">결과는 전문적으로</span>
               <h2>
                 한 줄만 적으면,
                 <br />
@@ -747,13 +831,14 @@ export default function Home() {
                   </div>
                 </div>
 
-                <div className="arrow-col" aria-hidden>
-                  <span className="ai-pill">
-                    <span className="ai-dot" />
-                    AI 변환
+                <div className="transform-mark" aria-hidden>
+                  <span className="tm-track tm-track-start">
+                    <span className="tm-dot" />
                   </span>
-                  <div className="arrow-line" />
-                  <div className="arrow-tip" />
+                  <span className="ai-pill">AI 변환</span>
+                  <span className="tm-track tm-track-end">
+                    <span className="tm-dot" />
+                  </span>
                 </div>
 
                 <div>
@@ -778,13 +863,21 @@ export default function Home() {
 
               <div className="followup">
                 <div className="followup-title">
-                  <span className="icon" aria-hidden />
                   더 구체적인 성과 문장으로 만들기 위한 질문
                 </div>
                 <div className="followup-list">
-                  <span>· 정리한 피드백은 몇 건이었나요?</span>
-                  <span>· 공유 이후 어떤 액션 아이템이 결정되었나요?</span>
-                  <span>· 후속 작업 시간이 이전보다 얼마나 단축되었나요?</span>
+                  <div className="fu-bubble">
+                    <span className="fu-mark" aria-hidden>Q1</span>
+                    <span className="fu-q">정리한 피드백은 몇 건이었나요?</span>
+                  </div>
+                  <div className="fu-bubble">
+                    <span className="fu-mark" aria-hidden>Q2</span>
+                    <span className="fu-q">공유 이후 어떤 액션 아이템이 결정되었나요?</span>
+                  </div>
+                  <div className="fu-bubble">
+                    <span className="fu-mark" aria-hidden>Q3</span>
+                    <span className="fu-q">후속 작업 시간이 이전보다 얼마나 단축되었나요?</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -794,7 +887,6 @@ export default function Home() {
         <section className="features" id="feature">
           <div className="cb-container">
             <div className="section-head">
-              <span className="eyebrow">AI가 찾은 핵심 업무</span>
               <h2>
                 기록할수록,
                 <br />
@@ -808,7 +900,7 @@ export default function Home() {
 
             <div className="feature-grid">
               <article className="feature-card span-3">
-                <span className="feature-tag">01 · WORK LOG INPUT</span>
+                <span className="feature-tag">Feature 01</span>
                 <h3 className="feature-title">한 줄 업무 기록</h3>
                 <p className="feature-desc">
                   완벽한 문장이 아니어도 괜찮아요. 회의·수정·조사·공유처럼 떠오르는 대로
@@ -838,7 +930,7 @@ export default function Home() {
               </article>
 
               <article className="feature-card span-3">
-                <span className="feature-tag">02 · IMPACT CONVERT</span>
+                <span className="feature-tag">Feature 02</span>
                 <h3 className="feature-title">AI 성과 변환</h3>
                 <p className="feature-desc">
                   경력기술서·자기소개서·포트폴리오에 그대로 쓸 수 있는 성과 중심 문장으로 바꿔드립니다.
@@ -858,7 +950,7 @@ export default function Home() {
               </article>
 
               <article className="feature-card span-2">
-                <span className="feature-tag">03 · METRIC PROMPT</span>
+                <span className="feature-tag">Feature 03</span>
                 <h3 className="feature-title">성과 보강 질문</h3>
                 <p className="feature-desc">수치화에 필요한 질문을 AI가 먼저 제안해드려요.</p>
                 <div className="feature-visual">
@@ -872,7 +964,7 @@ export default function Home() {
               </article>
 
               <article className="feature-card span-2">
-                <span className="feature-tag">04 · SKILL TAG</span>
+                <span className="feature-tag">Feature 04</span>
                 <h3 className="feature-title">역량 태그 자동 분류</h3>
                 <p className="feature-desc">협업·리서치·문제 해결 등 역량별로 자동 태깅됩니다.</p>
                 <div className="feature-visual">
@@ -888,7 +980,7 @@ export default function Home() {
               </article>
 
               <article className="feature-card span-2">
-                <span className="feature-tag">05 · CAREER STACK</span>
+                <span className="feature-tag">Feature 05</span>
                 <h3 className="feature-title">커리어 기록함</h3>
                 <p className="feature-desc">누적된 기록을 이력서·자소서·포트폴리오에 바로 활용하세요.</p>
                 <div className="feature-visual">

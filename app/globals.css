@@ -62,6 +62,8 @@
 html, body { color: var(--ink-900); }
 html { scroll-behavior: smooth; }
 
+/* scroll-snap 은 제거(일반 스크롤) — .cb-landing--snap 클래스는 viewport 진입 애니메이션 marker 로만 유지. */
+
 body {
   font-family: var(--font-sans);
   font-feature-settings: 'ss06', 'ss03';
@@ -127,10 +129,15 @@ body {
 
 /* Nav */
 .cb-landing .nav {
-  position: sticky; top: 0; z-index: 50;
+  position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+  background: transparent;
+  transition: background .25s ease, backdrop-filter .25s ease, box-shadow .25s ease;
+}
+.cb-landing .nav.scrolled {
   background: rgba(250, 250, 251, 0.85);
   backdrop-filter: saturate(180%) blur(12px);
   -webkit-backdrop-filter: saturate(180%) blur(12px);
+  box-shadow: 0 1px 0 var(--ink-100);
 }
 .cb-landing .nav-inner {
   max-width: var(--cb-max);
@@ -212,10 +219,13 @@ body {
 
 /* Hero */
 .cb-landing .hero {
-  padding-top: 80px; padding-bottom: 100px;
+  min-height: 100vh;
+  padding-top: 80px; padding-bottom: 80px;
   position: relative; overflow: hidden;
   background: #FAFAFB;
+  display: flex; align-items: center;
 }
+.cb-landing .hero .hero-grid { width: 100%; }
 /* 배경 비디오: hero 전체에 깔리고 콘텐츠는 z-index 로 위에 올라옴 */
 .cb-landing .hero-video {
   position: absolute; inset: 0;
@@ -262,9 +272,41 @@ body {
 }
 .cb-landing .hero-grid .cta-card { width: 100%; max-width: 640px; }
 .cb-landing .hero-copy { padding-top: 16px; }
+
+/* Hero 타이틀/서브카피 등장 애니메이션 — fade + rise. */
+@keyframes cb-hero-rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.cb-landing .hero h1 {
+  animation: cb-hero-rise .8s ease-out both;
+}
+.cb-landing .hero-sub {
+  animation: cb-hero-rise .8s ease-out .15s both;
+}
+.cb-landing .hero .cta-card {
+  animation: cb-hero-rise .8s ease-out .3s both;
+}
+
+/* accent 하이라이트가 좌→우로 그려짐. h1 등장 후 약간 뒤따라 시작. */
+@keyframes cb-accent-draw {
+  from { background-size: 0% 100%; }
+  to   { background-size: 100% 100%; }
+}
 .cb-landing .hero h1 .accent {
   background: linear-gradient(180deg, transparent 62%, var(--orange-soft) 62%);
+  background-size: 0% 100%;
+  background-repeat: no-repeat;
   padding: 0 4px;
+  animation: cb-accent-draw .7s ease-out .55s forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cb-landing .hero h1,
+  .cb-landing .hero-sub,
+  .cb-landing .hero .cta-card,
+  .cb-landing .hero h1 .accent { animation: none; }
+  .cb-landing .hero h1 .accent { background-size: 100% 100%; }
 }
 .cb-landing .hero-sub { margin-top: 24px; max-width: 520px; }
 .cb-landing .hero-meta { margin-top: 36px; display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
@@ -534,6 +576,74 @@ body {
 .cb-landing .problem { background: var(--paper); }
 .cb-landing .section-head { display: flex; flex-direction: column; gap: 16px; align-items: flex-start; max-width: 720px; margin-bottom: 56px; }
 .cb-landing .section-head.center { align-items: center; text-align: center; margin-left: auto; margin-right: auto; }
+
+/* 섹션 헤드 — viewport 진입 시 fade-up (IntersectionObserver 가 .in-view 토글). */
+.cb-landing--snap .section-head > h2,
+.cb-landing--snap .section-head > .lede,
+.cb-landing--snap .closing .cb-container > h2,
+.cb-landing--snap .closing .cb-container > .closing-sub,
+.cb-landing--snap .closing .cb-container > .closing-cta {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity .7s ease-out, transform .7s ease-out;
+}
+.cb-landing--snap .section-head.in-view > h2,
+.cb-landing--snap .closing .cb-container.in-view > h2 {
+  opacity: 1;
+  transform: translateY(0);
+}
+.cb-landing--snap .section-head.in-view > .lede,
+.cb-landing--snap .closing .cb-container.in-view > .closing-sub {
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: .15s;
+}
+.cb-landing--snap .closing .cb-container.in-view > .closing-cta {
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: .3s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cb-landing--snap .section-head > h2,
+  .cb-landing--snap .section-head > .lede,
+  .cb-landing--snap .closing .cb-container > h2,
+  .cb-landing--snap .closing .cb-container > .closing-sub,
+  .cb-landing--snap .closing .cb-container > .closing-cta {
+    opacity: 1; transform: none; transition: none;
+  }
+}
+
+/* Problem / Feature 카드 — viewport 진입 시 fade-up. 같은 row 카드들에 stagger. */
+.cb-landing--snap .problem-card,
+.cb-landing--snap .feature-card {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity .65s ease-out, transform .65s ease-out, box-shadow .15s ease;
+}
+.cb-landing--snap .problem-card.in-view,
+.cb-landing--snap .feature-card.in-view {
+  opacity: 1;
+  transform: translateY(0);
+}
+/* Problem 2x2 grid stagger — 1·2 동시, 3·4 0.12s 뒤. */
+.cb-landing--snap .problem-grid .problem-card:nth-child(1).in-view,
+.cb-landing--snap .problem-grid .problem-card:nth-child(2).in-view { transition-delay: 0s, 0s, 0s; }
+.cb-landing--snap .problem-grid .problem-card:nth-child(2).in-view { transition-delay: .08s, .08s, 0s; }
+.cb-landing--snap .problem-grid .problem-card:nth-child(3).in-view { transition-delay: .16s, .16s, 0s; }
+.cb-landing--snap .problem-grid .problem-card:nth-child(4).in-view { transition-delay: .24s, .24s, 0s; }
+/* Feature grid stagger — 카드 5개 순차. */
+.cb-landing--snap .feature-grid .feature-card:nth-child(1).in-view { transition-delay: 0s, 0s, 0s; }
+.cb-landing--snap .feature-grid .feature-card:nth-child(2).in-view { transition-delay: .08s, .08s, 0s; }
+.cb-landing--snap .feature-grid .feature-card:nth-child(3).in-view { transition-delay: .16s, .16s, 0s; }
+.cb-landing--snap .feature-grid .feature-card:nth-child(4).in-view { transition-delay: .24s, .24s, 0s; }
+.cb-landing--snap .feature-grid .feature-card:nth-child(5).in-view { transition-delay: .32s, .32s, 0s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cb-landing--snap .problem-card,
+  .cb-landing--snap .feature-card {
+    opacity: 1; transform: none; transition: none;
+  }
+}
 .cb-landing .problem-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
 .cb-landing .problem-card {
   background: var(--ink-50);
@@ -545,7 +655,6 @@ body {
 }
 .cb-landing .problem-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
 .cb-landing .problem-num {
-  font-family: var(--font-mono);
   font-size: 13px; font-weight: 600; color: var(--ink-500); letter-spacing: 0.06em;
 }
 .cb-landing .problem-title { font-size: 22px; font-weight: 600; color: var(--ink-900); }
@@ -555,6 +664,124 @@ body {
   background: var(--paper);
   border-radius: 10px; padding: 12px 14px;
   font-size: 13px; color: var(--orange-deep); font-style: italic;
+}
+
+/* Problem 카드 mockup 영역 — 각 문제 상황을 작은 시각화로 보여줌.
+   4개 카드의 mockup 영역 높이를 통일해 시각적 리듬을 맞춤. */
+.cb-landing .problem-mock {
+  position: relative;
+  background: var(--paper);
+  border-radius: 14px;
+  padding: 20px;
+  height: 200px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px var(--ink-200);
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+/* 01. 기억 안 남 — 시간 지날수록 흐려지는 노트 stack + 물음표 */
+.cb-landing .pm-memory .pm-note {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--ink-50);
+  border-radius: 8px;
+  padding: 9px 12px;
+}
+.cb-landing .pm-memory .pm-note-date {
+  font-size: 11px; font-weight: 600; color: var(--ink-500);
+  letter-spacing: 0.04em; min-width: 50px;
+}
+.cb-landing .pm-memory .pm-note-line {
+  flex: 1; height: 6px; border-radius: 3px;
+  background: var(--ink-200);
+}
+.cb-landing .pm-memory .pm-note-line.short { flex: 0 0 40%; }
+.cb-landing .pm-memory .pm-note-line.accent { background: var(--orange-soft); }
+.cb-landing .pm-memory .pm-fade-1 { opacity: 0.6; }
+.cb-landing .pm-memory .pm-fade-2 { opacity: 0.3; }
+.cb-landing .pm-memory .pm-mark,
+.cb-landing .pm-metric .pm-mark {
+  position: absolute; right: 18px; bottom: 14px;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--ink-100); color: var(--ink-500);
+  display: grid; place-items: center;
+  font-size: 16px; font-weight: 700;
+}
+
+/* 02. 수치화 어려움 — 입력 → ??? 빈 결과 */
+.cb-landing .pm-metric .pm-row {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--ink-50);
+  border-radius: 8px; padding: 9px 12px;
+}
+.cb-landing .pm-metric .pm-row-out { background: transparent; border: 1px dashed var(--ink-300); }
+.cb-landing .pm-metric .pm-row-label {
+  font-size: 11px; font-weight: 600; color: var(--ink-500);
+  letter-spacing: 0.04em; min-width: 64px;
+}
+.cb-landing .pm-metric .pm-row-body { flex: 1; display: flex; align-items: center; gap: 6px; }
+.cb-landing .pm-metric .pm-row-text {
+  font-size: 13px; color: var(--ink-900); font-weight: 500;
+}
+.cb-landing .pm-metric .pm-row-body-blank { gap: 6px; }
+.cb-landing .pm-metric .pm-blank-line {
+  flex: 1; height: 6px; border-radius: 3px; background: var(--ink-200);
+}
+.cb-landing .pm-metric .pm-blank-line.short {
+  flex: 0 0 30%; background: var(--orange-soft);
+}
+
+/* 03. 매일 밀려요 — 캘린더 그리드, 빈 칸 많음, 채워진 칸 1개만 강조 */
+.cb-landing .pm-pile .pm-cal {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 5px;
+  flex: 1; min-height: 0;
+}
+.cb-landing .pm-pile .pm-cal-cell {
+  border-radius: 4px;
+  background: var(--ink-100);
+  border: 1px solid var(--ink-200);
+  min-height: 18px;
+}
+.cb-landing .pm-pile .pm-cal-cell.filled {
+  background: var(--ink-900); border-color: var(--ink-900);
+}
+.cb-landing .pm-pile .pm-cal-cell.accent {
+  background: var(--orange-soft); border-color: var(--orange-soft);
+}
+.cb-landing .pm-pile .pm-cal-caption {
+  font-size: 11px; color: var(--ink-500); margin-top: 10px;
+  letter-spacing: 0.04em; font-weight: 500;
+}
+
+/* 04. 역량 연결 안 됨 — 흩어진 칩들, 한 개만 orange-soft 강조 */
+.cb-landing .problem-mock.pm-tags {
+  display: flex;
+  flex-direction: row; flex-wrap: wrap;
+  align-items: center; justify-content: center;
+  align-content: center;
+  gap: 10px 12px;
+  padding: 24px 20px;
+}
+.cb-landing .pm-tags .pm-tag {
+  display: inline-flex; align-items: center;
+  padding: 6px 12px; border-radius: 999px;
+  font-size: 12px; font-weight: 500; color: var(--ink-500);
+  background: var(--paper);
+  border: 1px dashed var(--ink-300);
+}
+.cb-landing .pm-tags .pm-tag.accent {
+  border-color: var(--orange); color: var(--orange);
+  background: var(--orange-soft);
+}
+.cb-landing .pm-tags .pm-tag-1 { transform: rotate(-2deg); }
+.cb-landing .pm-tags .pm-tag-2 { transform: rotate(1deg); }
+.cb-landing .pm-tags .pm-tag-3 { transform: rotate(-1deg); }
+.cb-landing .pm-tags .pm-tag-4 { transform: rotate(2deg); }
+.cb-landing .pm-tags .pm-tag-5 {
+  color: var(--ink-400); background: transparent; border-style: none;
 }
 
 /* Solution */
@@ -576,7 +803,7 @@ body {
 .cb-landing .step-num {
   width: 22px; height: 22px; border-radius: 6px;
   background: var(--ink-100); color: var(--ink-700);
-  display: grid; place-items: center; font-family: var(--font-mono); font-size: 11px;
+  display: grid; place-items: center; font-size: 11px;
 }
 .cb-landing .before-card {
   background: var(--ink-50);
@@ -586,27 +813,39 @@ body {
 }
 .cb-landing .before-text { font-size: 18px; color: var(--ink-900); font-weight: 500; line-height: 1.55; }
 .cb-landing .before-meta { font-size: 12px; color: var(--ink-500); display: flex; gap: 12px; align-items: center; }
-.cb-landing .before-meta .typed-len { font-family: var(--font-mono); }
 
-.cb-landing .arrow-col {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
-  padding: 0 4px;
+/* Solution 섹션 변환 마크 — 점선 + 양끝 동그라미로 before / after 두 카드를 잇는다. */
+.cb-landing .transform-mark {
+  display: flex; align-items: center; justify-content: center;
+  gap: 10px; min-height: 56px; min-width: 180px;
 }
-.cb-landing .arrow-col .ai-pill {
+.cb-landing .transform-mark .ai-pill {
   background: var(--ink-900); color: white;
-  padding: 6px 12px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
-  display: flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase;
+  display: inline-flex; align-items: center;
+  flex-shrink: 0;
 }
-.cb-landing .arrow-col .ai-pill .ai-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--orange); }
-.cb-landing .arrow-line {
-  width: 2px; flex: 1;
-  background: linear-gradient(180deg, var(--ink-200), var(--orange), var(--ink-200));
-  min-height: 80px;
+.cb-landing .transform-mark .tm-track {
+  position: relative; flex: 1;
+  height: 2px; min-width: 36px;
+  background-image: linear-gradient(to right, var(--ink-300) 50%, transparent 0%);
+  background-size: 8px 2px;
+  background-repeat: repeat-x;
 }
-.cb-landing .arrow-tip {
-  width: 0; height: 0;
-  border-left: 6px solid transparent; border-right: 6px solid transparent;
-  border-top: 8px solid var(--orange);
+.cb-landing .transform-mark .tm-dot {
+  position: absolute; top: 50%;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--paper);
+  border: 2px solid var(--ink-300);
+  transform: translateY(-50%);
+}
+.cb-landing .transform-mark .tm-track-start .tm-dot { left: -4px; }
+.cb-landing .transform-mark .tm-track-end .tm-dot {
+  right: -4px;
+  border-color: var(--orange);
+  background: var(--orange);
 }
 
 .cb-landing .after-card {
@@ -622,27 +861,36 @@ body {
 
 .cb-landing .followup {
   margin-top: 28px;
-  background: var(--ink-50);
-  border-radius: 12px;
-  padding: 18px 20px;
+  background: var(--paper);
+  border-radius: 14px;
+  padding: 22px 24px;
+  box-shadow: inset 0 0 0 1px var(--ink-200);
 }
 .cb-landing .followup-title {
-  display: inline-flex; align-items: center; gap: 8px;
+  display: block;
   font-size: 12px; font-weight: 600; color: var(--ink-500);
   letter-spacing: 0.06em; text-transform: uppercase;
-  margin-bottom: 10px;
+  margin-bottom: 14px;
 }
-.cb-landing .followup-title .icon {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--orange);
-  box-shadow: 0 0 0 0 rgba(250,92,64,0.5);
-  animation: cbPulse 1.6s infinite;
+.cb-landing .followup-list {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.cb-landing .followup-list .fu-bubble {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--ink-50);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 14px; color: var(--ink-700); line-height: 1.4;
+}
+.cb-landing .followup-list .fu-mark {
   flex-shrink: 0;
-}
-.cb-landing .followup-list { font-size: 14px; color: var(--ink-700); line-height: 1.7; }
-.cb-landing .followup-list span {
-  display: block;
-  padding-left: 12px; text-indent: -12px;
+  min-width: 30px; height: 22px; border-radius: 999px;
+  padding: 0 8px;
+  background: var(--paper);
+  border: 1px solid var(--ink-300);
+  color: var(--ink-500);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
 }
 
 /* Features */
@@ -661,13 +909,22 @@ body {
 .cb-landing .feature-card.span-3 { grid-column: span 3; }
 .cb-landing .feature-card.span-2 { grid-column: span 2; }
 .cb-landing .feature-card.span-6 { grid-column: span 6; }
+/* Feature 카드 텍스트 위계 — Problem 카드와 동일한 스케일/톤. */
 .cb-landing .feature-tag {
-  font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-500);
+  font-size: 13px; font-weight: 600; letter-spacing: 0.06em; color: var(--ink-500);
 }
-.cb-landing .feature-title { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
-.cb-landing .feature-desc { font-size: 14px; color: var(--ink-700); line-height: 1.6; }
+.cb-landing .feature-title { font-size: 22px; font-weight: 600; color: var(--ink-900); letter-spacing: -0.02em; }
+.cb-landing .feature-desc { font-size: 15px; color: var(--ink-700); line-height: 1.6; }
+/* Feature mockup 박스 — Problem mockup 톤(paper + inner border + 고정 높이) + order 로 맨 위 배치. */
 .cb-landing .feature-visual {
-  margin-top: auto; background: var(--paper); border-radius: 12px; padding: 16px; min-height: 120px;
+  order: -1;
+  background: var(--paper);
+  border-radius: 14px;
+  padding: 18px;
+  min-height: 160px;
+  box-shadow: inset 0 0 0 1px var(--ink-200);
+  display: flex; flex-direction: column; justify-content: center;
+  margin-bottom: 4px;
 }
 
 .cb-landing .fv-input {
@@ -681,9 +938,16 @@ body {
 
 .cb-landing .fv-convert { display: flex; flex-direction: column; gap: 8px; }
 .cb-landing .fv-convert .row { font-size: 12px; color: var(--ink-500); }
-.cb-landing .fv-convert .src { color: var(--ink-700); padding: 8px 10px; background: var(--ink-50); border-radius: 8px; font-size: 12px; }
-.cb-landing .fv-convert .dst { padding: 8px 10px; background: var(--ink-900); color: var(--paper); border-radius: 8px; font-size: 12px; line-height: 1.5; }
-.cb-landing .fv-convert .arrow { text-align: center; color: var(--orange); font-size: 14px; font-weight: 700; }
+.cb-landing .fv-convert .src {
+  color: var(--ink-700); padding: 8px 10px;
+  background: var(--ink-50); border-radius: 8px; font-size: 12px;
+}
+.cb-landing .fv-convert .dst {
+  padding: 8px 10px;
+  background: var(--orange-soft); color: var(--ink-900);
+  border-radius: 8px; font-size: 12px; line-height: 1.5;
+}
+.cb-landing .fv-convert .arrow { text-align: center; color: var(--ink-400); font-size: 14px; font-weight: 700; }
 
 .cb-landing .fv-question { display: flex; flex-direction: column; gap: 8px; }
 .cb-landing .fv-question .q {
@@ -704,7 +968,7 @@ body {
   display: grid; grid-template-columns: 60px 1fr; gap: 10px 14px;
   font-size: 12px; align-items: center;
 }
-.cb-landing .fv-timeline .date { font-family: var(--font-mono); color: var(--ink-500); font-size: 11px; }
+.cb-landing .fv-timeline .date { color: var(--ink-500); font-size: 11px; }
 .cb-landing .fv-timeline .entry {
   background: var(--ink-50); border-radius: 8px;
   padding: 8px 12px; display: flex; gap: 8px; align-items: center; justify-content: space-between;
@@ -729,6 +993,16 @@ body {
 .cb-landing .closing h2 .accent { color: var(--orange); }
 .cb-landing .closing-sub { color: rgba(255,255,255,0.7); margin-top: 24px; font-size: 18px; }
 .cb-landing .closing-cta { margin-top: 44px; display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+/* 검정 배경 위 outline 버튼은 색 반전(흰 보더/텍스트)으로 override */
+.cb-landing .closing .btn-secondary {
+  color: var(--paper);
+  border-color: rgba(255,255,255,0.35);
+  background: transparent;
+}
+.cb-landing .closing .btn-secondary:hover {
+  border-color: var(--paper);
+  background: rgba(255,255,255,0.08);
+}
 .cb-landing .closing-cta .btn-primary { background: white; color: var(--ink-900); }
 .cb-landing .closing-cta .btn-primary:hover { background: var(--orange); color: var(--paper); }
 .cb-landing .closing-pattern {
@@ -763,7 +1037,7 @@ body {
   color: var(--ink-500); font-size: 14px;
 }
 .cb-landing .page-head .meta-row strong {
-  color: var(--ink-900); font-weight: 700; font-family: var(--font-mono);
+  color: var(--ink-900); font-weight: 700;
 }
 .cb-landing .page-head .sep { width: 1px; height: 14px; background: var(--ink-200); }
 
@@ -810,7 +1084,7 @@ body {
 .cb-landing .filter-chip:hover { background: var(--ink-200); }
 .cb-landing .filter-chip.active { background: var(--ink-900); color: var(--paper); }
 .cb-landing .filter-chip .count {
-  font-family: var(--font-mono); font-size: 11px;
+  font-size: 11px;
   background: rgba(255,255,255,.18); padding: 1px 6px; border-radius: 6px;
 }
 .cb-landing .filter-chip:not(.active) .count { background: var(--paper); color: var(--ink-500); }
@@ -852,7 +1126,7 @@ body {
 }
 .cb-landing .entry-date .day {
   font-size: 24px; font-weight: 700; letter-spacing: -.02em;
-  line-height: 1; font-family: var(--font-mono);
+  line-height: 1;
 }
 .cb-landing .entry-date .mo {
   font-size: 12px; color: var(--ink-500); font-weight: 500;
@@ -877,7 +1151,6 @@ body {
   width: 100%; padding: 6px 8px; border-radius: 8px;
   border: 1px solid var(--ink-300); background: var(--paper);
   font: inherit; font-size: 13px; color: var(--ink-900);
-  font-family: var(--font-mono);
 }
 .cb-landing .entry-date .date-picker:focus { outline: 2px solid var(--orange); outline-offset: 1px; }
 
@@ -988,9 +1261,22 @@ body {
   .cb-landing .hero-grid { grid-template-columns: 1fr; gap: 40px; }
   .cb-landing .problem-grid { grid-template-columns: 1fr; }
   .cb-landing .solution-grid { grid-template-columns: 1fr; }
-  .cb-landing .arrow-col { flex-direction: row; padding: 8px 0; }
-  .cb-landing .arrow-col .arrow-line { width: 100%; height: 2px; min-height: 0; background: linear-gradient(90deg, var(--ink-200), var(--orange), var(--ink-200)); }
-  .cb-landing .arrow-col .arrow-tip { transform: rotate(-90deg); }
+  .cb-landing .transform-mark {
+    flex-direction: column; min-height: 100px; min-width: 0;
+    padding: 8px 0; gap: 8px;
+  }
+  .cb-landing .transform-mark .tm-track {
+    width: 2px; height: auto; flex: 1; min-height: 24px; min-width: 0;
+    background-image: linear-gradient(to bottom, var(--ink-300) 50%, transparent 0%);
+    background-size: 2px 8px;
+    background-repeat: repeat-y;
+  }
+  .cb-landing .transform-mark .tm-track-start .tm-dot {
+    left: 50%; top: -4px; transform: translate(-50%, 0);
+  }
+  .cb-landing .transform-mark .tm-track-end .tm-dot {
+    left: 50%; right: auto; top: auto; bottom: -4px; transform: translate(-50%, 0);
+  }
   .cb-landing .feature-grid { grid-template-columns: 1fr; }
   .cb-landing .feature-card.span-3, .cb-landing .feature-card.span-2, .cb-landing .feature-card.span-6 { grid-column: span 1; }
   .cb-landing .nav-links a:not(.nav-cta) { display: none; }
