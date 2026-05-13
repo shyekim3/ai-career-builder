@@ -60,6 +60,7 @@ export default function Home() {
   const transformAttempt = useRef(0)
   const transformStartedAt = useRef<number | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
   useEffect(() => {
     initMixpanel(user?.id)
@@ -69,6 +70,15 @@ export default function Home() {
     if (!result) return
     track('output_viewed', { scroll_depth: 0, time_on_result_sec: 0 })
   }, [result])
+
+  // textarea 입력 분량에 따라 자동으로 높이 늘림 (1줄 ~ 제한 없음).
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = el.scrollHeight + 'px'
+  }, [rawText])
+
 
   // 로그인 후 복귀 시 pending_save 복원
   useEffect(() => {
@@ -385,7 +395,6 @@ export default function Home() {
     'User'
   const userInitial = userName.charAt(0).toUpperCase()
 
-  const showEmpty = !loading && !result && !needsInfo
   const submitLabel = loading
     ? '변환 중…'
     : result || needsInfo
@@ -429,13 +438,19 @@ export default function Home() {
 
       <main id="top" className="flex-1">
         <section className="hero" id="hero">
+          <video
+            className="hero-video"
+            src="/0513.mp4"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="auto"
+            aria-hidden="true"
+          />
           <div className="hero-grid">
             <div className="hero-copy">
-              <span className="eyebrow">
-                <span className="dot" />
-                AI 커리어 기록 서비스
-              </span>
-              <h1 style={{ marginTop: 24, fontSize: 'clamp(32px, 6vw, 52px)' }}>
+              <h1 style={{ fontSize: 'clamp(32px, 6vw, 52px)' }}>
                 오늘 한 일을,
                 <br />
                 내일의 <span className="accent">커리어 문장</span>으로.
@@ -444,53 +459,21 @@ export default function Home() {
                 입력은 최대한 가볍게도 해도 좋아요. AI가 성과 중심 문장으로 바꾸고,
                 역량별 커리어 자산으로 차곡차곡 쌓아드립니다.
               </p>
-              <div className="hero-meta">
-                <div className="stat">
-                  <strong>3,200+</strong>주니어 직장인
-                </div>
-                <div className="sep" />
-                <div className="stat">
-                  <strong>48,000개</strong>의 성과 문장
-                </div>
-                <div className="sep" />
-                <div className="stat">
-                  <strong>매일 1줄</strong>이면 충분
-                </div>
-              </div>
             </div>
 
             <div className="cta-card">
               <div className="cta-input-block">
-                <div className="cta-input-label">
-                  <span className="pulse" />
-                  오늘의 업무 기록
-                </div>
+                <div className="cta-input-label">지금 바로 시작해보기</div>
                 <div className="cta-input-question">오늘 어떤 일을 했나요?</div>
                 <div className="cta-input-helper">
                   완벽하게 쓰지 않아도 괜찮아요. 한 줄이면 충분합니다.
                 </div>
-                <form className="cta-input-row" onSubmit={onTransform}>
-                  <input
-                    type="text"
-                    value={rawText}
-                    onChange={(e) => onInputChange(e.target.value)}
-                    placeholder="예: 회의록 정리하고 수정사항 팀에 공유함"
-                    autoComplete="off"
-                  />
-                  <button
-                    type="submit"
-                    className="btn btn-primary"
-                    disabled={loading}
-                  >
-                    {submitLabel}
-                  </button>
-                </form>
               </div>
 
-              <div className="cta-result">
+              {(loading || result || needsInfo || error) && (
+              <div className="cta-result cb-slide-down">
                 <div className="cta-result-head">
                   <div className="label">
-                    <span className="ai-dot" />
                     {needsInfo ? '추가 정보 필요' : '성과 문장'}
                   </div>
                   <div className="meta">
@@ -500,21 +483,9 @@ export default function Home() {
                       ? `방금 변환됨 · ${formatMonthDay(result.ts)}`
                       : needsInfo
                       ? '몇 가지 답변이 필요해요'
-                      : '변환 대기 중'}
+                      : ''}
                   </div>
                 </div>
-
-                {showEmpty && (
-                  <div className="cta-result-empty">
-                    <span className="empty-icon" aria-hidden>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 5v14" />
-                        <path d="M5 12h14" />
-                      </svg>
-                    </span>
-                    한 줄 적고 ‘성과 문장으로 바꾸기’를 눌러보세요.
-                  </div>
-                )}
 
                 {loading && (
                   <div className="cta-result-loading">
@@ -539,6 +510,13 @@ export default function Home() {
                       )}
                     </div>
                     <div className="cta-actions">
+                      <button type="button" className="cta-action-btn" onClick={onCopy}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                        </svg>
+                        복사
+                      </button>
                       <button
                         type="button"
                         className="cta-action-btn primary"
@@ -564,16 +542,22 @@ export default function Home() {
                               <polyline points="17 21 17 13 7 13 7 21" />
                               <polyline points="7 3 7 8 15 8" />
                             </svg>
-                            커리어 기록함에 저장
+                            저장
                           </>
                         )}
                       </button>
-                      <button type="button" className="cta-action-btn" onClick={onCopy}>
+                      <button
+                        type="button"
+                        className="cta-action-btn"
+                        onClick={() => onTransform()}
+                        disabled={loading || !rawText.trim()}
+                        title="현재 입력 내용으로 다시 변환"
+                      >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                          <polyline points="23 4 23 10 17 10" />
+                          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
                         </svg>
-                        복사
+                        다시 생성
                       </button>
                     </div>
                   </div>
@@ -642,6 +626,33 @@ export default function Home() {
                   </p>
                 )}
               </div>
+              )}
+
+              <form className="cta-input-row" onSubmit={onTransform}>
+                <textarea
+                  ref={textareaRef}
+                  value={rawText}
+                  onChange={(e) => onInputChange(e.target.value)}
+                  placeholder="예: 회의록 정리하고 수정사항 팀에 공유함"
+                  autoComplete="off"
+                  rows={1}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      void onTransform()
+                    }
+                  }}
+                />
+                <div className="cta-input-actions">
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={loading}
+                  >
+                    {submitLabel}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </section>

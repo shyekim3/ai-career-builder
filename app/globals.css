@@ -184,7 +184,10 @@ body {
   display: inline-flex; align-items: center; gap: 8px;
   font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
   color: var(--ink-700);
-  background: var(--ink-100);
+  background: rgba(250, 250, 251, 0.85);
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
   padding: 6px 12px; border-radius: 999px;
 }
 .cb-landing .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--orange); }
@@ -199,23 +202,32 @@ body {
 .cb-landing .hero {
   padding-top: 80px; padding-bottom: 100px;
   position: relative; overflow: hidden;
-  background: var(--ink-50);
+  background: #FAFAFB;
+}
+/* 배경 비디오: hero 전체에 깔리고 콘텐츠는 z-index 로 위에 올라옴 */
+.cb-landing .hero-video {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  z-index: 0; pointer-events: none;
+  /* 영상 위 가독성 보강용 살짝 옅은 화이트 오버레이 */
 }
 .cb-landing .hero::before,
 .cb-landing .hero::after {
   content: ''; position: absolute; border-radius: 50%;
-  filter: blur(80px); pointer-events: none; z-index: 0; will-change: transform;
+  filter: blur(80px); pointer-events: none; z-index: 1; will-change: transform;
+  mix-blend-mode: screen;
 }
 .cb-landing .hero::before {
   width: 620px; height: 620px;
   top: -180px; right: -120px;
-  background: radial-gradient(circle, rgba(250, 92, 64, 0.32), rgba(250, 92, 64, 0) 70%);
+  background: radial-gradient(circle, rgba(250, 92, 64, 0.22), rgba(250, 92, 64, 0) 70%);
   animation: cbHeroDriftA 12s ease-in-out infinite alternate;
 }
 .cb-landing .hero::after {
   width: 560px; height: 560px;
   bottom: -200px; left: -120px;
-  background: radial-gradient(circle, rgba(11, 11, 12, 0.10), rgba(11, 11, 12, 0) 70%);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 70%);
   animation: cbHeroDriftB 15s ease-in-out infinite alternate;
 }
 @keyframes cbHeroDriftA {
@@ -232,10 +244,11 @@ body {
   .cb-landing .hero::before, .cb-landing .hero::after { animation: none; }
 }
 .cb-landing .hero-grid {
-  position: relative; z-index: 1;
+  position: relative; z-index: 2;
   max-width: var(--cb-max); margin: 0 auto;
-  display: grid; grid-template-columns: 1.05fr 1fr; gap: 56px; align-items: start;
+  display: flex; flex-direction: column; gap: 48px; align-items: flex-start;
 }
+.cb-landing .hero-grid .cta-card { width: 100%; max-width: 640px; }
 .cb-landing .hero-copy { padding-top: 16px; }
 .cb-landing .hero h1 .accent {
   background: linear-gradient(180deg, transparent 62%, var(--orange-soft) 62%);
@@ -272,23 +285,33 @@ body {
 .cb-landing .cta-input-question { margin-top: 14px; font-size: 18px; font-weight: 600; color: var(--ink-900); }
 .cb-landing .cta-input-helper { margin-top: 4px; font-size: 13px; color: var(--ink-500); }
 .cb-landing .cta-input-row {
-  margin-top: 18px;
-  display: flex; gap: 8px; align-items: center;
+  margin: 18px 24px 24px;
+  display: flex; flex-direction: column; gap: 10px;
   background: var(--ink-100); border-radius: 14px;
-  padding: 6px 6px 6px 16px;
+  padding: 14px 16px;
   transition: box-shadow .15s ease;
 }
 .cb-landing .cta-input-row:focus-within { box-shadow: 0 0 0 4px rgba(11, 11, 12, 0.06); }
-.cb-landing .cta-input-row input {
-  flex: 1; border: 0; background: transparent; outline: none;
-  font: inherit; font-size: 15px; color: var(--ink-900);
-  padding: 12px 0;
+.cb-landing .cta-input-row textarea {
+  width: 100%; border: 0; background: transparent; outline: none;
+  font: inherit; font-size: 15px; line-height: 1.55; color: var(--ink-900);
+  padding: 4px 0; resize: none; overflow: hidden;
+  min-height: 24px;
 }
-.cb-landing .cta-input-row input::placeholder { color: var(--ink-400); }
-.cb-landing .cta-input-row .btn { padding: 11px 18px; border-radius: 10px; font-size: 14px; }
+.cb-landing .cta-input-row textarea::placeholder { color: var(--ink-400); }
+.cb-landing .cta-input-actions { display: flex; justify-content: flex-end; }
+.cb-landing .cta-input-row .btn { padding: 10px 18px; border-radius: 10px; font-size: 14px; }
+
+/* 결과 영역 슬라이드 다운 (초기엔 숨김 — 변환 시작 시점에 렌더되며 펼쳐짐) */
+@keyframes cb-slide-down {
+  from { opacity: 0; transform: translateY(-6px); max-height: 0; }
+  to   { opacity: 1; transform: translateY(0); max-height: 1600px; }
+}
+.cb-slide-down { animation: cb-slide-down .35s ease-out both; overflow: hidden; }
 
 .cb-landing .cta-result {
   border-top: 1px dashed var(--ink-200);
+  border-bottom: 1px dashed var(--ink-200);
   background: linear-gradient(180deg, var(--ink-50), var(--paper));
   padding: 22px 24px 24px;
 }
@@ -931,16 +954,12 @@ body {
   .cb-landing .entry-actions { grid-column: 1 / -1; flex-direction: row; justify-content: flex-end; }
 }
 
-/* 모바일에서 hero CTA / hero-meta가 화면 안에 들어오도록 */
+/* 모바일에서 hero CTA 가 화면 안에 들어오도록 */
 @media (max-width: 720px) {
-  .cb-landing .cta-input-row {
-    flex-direction: column; align-items: stretch;
-    padding: 12px;
-  }
-  .cb-landing .cta-input-row input { padding: 10px 4px; width: 100%; }
+  .cb-landing .cta-input-row { padding: 12px; }
+  .cb-landing .cta-input-row textarea { padding: 4px 0; }
+  .cb-landing .cta-input-actions { justify-content: stretch; }
   .cb-landing .cta-input-row .btn { width: 100%; padding: 12px; border-radius: 10px; }
-  .cb-landing .hero-meta { gap: 14px; }
-  .cb-landing .hero-meta .sep { display: none; }
 }
 
 /* Responsive */
