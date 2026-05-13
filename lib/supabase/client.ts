@@ -14,4 +14,8 @@ export type Entry = {
   raw_text: string
   metric_result: string | null
   star_result: string | null
+  chips: string[]
+  project_name: string | null
+  entry_date: string | null
+  metric_result_original: string | null
 }

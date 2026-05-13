@@ -9,6 +9,8 @@ type PostBody = {
   rawText: string
   metricResult: string | null
   starResult: string | null
+  chips?: string[]
+  projectName?: string | null
 }
 
 export async function POST(req: NextRequest) {
@@ -30,7 +32,10 @@ export async function POST(req: NextRequest) {
         user_id: user.id,
         raw_text: body.rawText,
         metric_result: body.metricResult,
+        metric_result_original: body.metricResult,
         star_result: body.starResult,
+        chips: Array.isArray(body.chips) ? body.chips.slice(0, 3) : [],
+        project_name: body.projectName?.trim() || null,
       })
       .select()
       .single()

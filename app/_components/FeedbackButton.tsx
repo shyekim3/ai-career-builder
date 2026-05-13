@@ -16,10 +16,15 @@ const RATING_OPTIONS: { value: Rating; label: string }[] = [
 export default function FeedbackButton() {
   const [open, setOpen] = useState(false)
   const [rating, setRating] = useState<Rating | null>(null)
-  const [painPoint, setPainPoint] = useState('')
+  const [expectation, setPainPoint] = useState('')
   const [comment, setComment] = useState('')
   const [status, setStatus] = useState<Status>('idle')
   const [error, setError] = useState<string | null>(null)
+  const [hasSubmittedBefore, setHasSubmittedBefore] = useState(false)
+
+  useEffect(() => {
+    setHasSubmittedBefore(!!localStorage.getItem('cb_feedback_submitted'))
+  }, [])
 
   useEffect(() => {
     if (!open) return
@@ -47,6 +52,14 @@ export default function FeedbackButton() {
     setTimeout(reset, 250)
   }
 
+  function onOpenClick() {
+    if (hasSubmittedBefore) {
+      const ok = confirm('이미 의견을 남겨주셨어요. 새로 의견을 남기시겠어요?')
+      if (!ok) return
+    }
+    setOpen(true)
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!rating) {
@@ -59,10 +72,14 @@ export default function FeedbackButton() {
       const supabase = createBrowserSupabase()
       const { error: insertError } = await supabase.from('feedbacks').insert({
         rating,
-        pain_point: painPoint.trim() || null,
+        expectation: expectation.trim() || null,
         comment: comment.trim() || null,
       })
       if (insertError) throw insertError
+      try {
+        localStorage.setItem('cb_feedback_submitted', new Date().toISOString())
+      } catch {}
+      setHasSubmittedBefore(true)
       setStatus('success')
       setTimeout(() => close(), 1600)
     } catch (e) {
@@ -75,9 +92,9 @@ export default function FeedbackButton() {
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={onOpenClick}
         aria-label="의견 남기기"
-        className="fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-40 inline-flex items-center gap-2 rounded-full bg-mono-900 text-mono-50 px-4 py-3 sm:px-5 sm:py-3 text-sm font-medium shadow-[0_8px_24px_rgba(14,14,16,0.18)] hover:bg-mono-700 transition-colors"
+        className="fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-40 inline-flex items-center gap-2 rounded-full bg-mono-900 text-mono-50 px-4 py-3 sm:px-5 sm:py-3 text-sm font-medium shadow-[0_8px_24px_rgba(14,14,16,0.18)] hover:bg-orange transition-colors"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -168,8 +185,8 @@ export default function FeedbackButton() {
               <form onSubmit={onSubmit} className="space-y-5">
                 <fieldset>
                   <legend className="block text-sm font-medium text-mono-900">
-                    이 서비스를 사용해보니 어떠셨나요?
-                    <span className="ml-1 text-mono-400">*</span>
+                    서비스를 사용해보니 어떠셨나요?
+                    <span className="ml-1" style={{ color: 'var(--orange)' }}>*</span>
                   </legend>
                   <div className="mt-3 grid grid-cols-4 gap-2">
                     {RATING_OPTIONS.map((opt) => {
@@ -197,11 +214,11 @@ export default function FeedbackButton() {
                     htmlFor="feedback-pain"
                     className="block text-sm font-medium text-mono-900"
                   >
-                    이 서비스에서 기대했던 점이 있으신가요?
+                    서비스에서 기대했던 점이 있으신가요?
                   </label>
                   <textarea
                     id="feedback-pain"
-                    value={painPoint}
+                    value={expectation}
                     onChange={(e) => setPainPoint(e.target.value)}
                     rows={3}
                     maxLength={1000}
@@ -215,7 +232,7 @@ export default function FeedbackButton() {
                     htmlFor="feedback-comment"
                     className="block text-sm font-medium text-mono-900"
                   >
-                    개선을 위한 자유로운 의견을 남겨주세요. 서비스 이용 시 불편했던 점도 좋아요!
+                    개선을 위한 자유로운 의견을 남겨주세요. 서비스 이용 시 불편했던 점도 좋아요 😊
                   </label>
                   <textarea
                     id="feedback-comment"
@@ -240,14 +257,14 @@ export default function FeedbackButton() {
                     onClick={close}
                     className="px-4 py-2.5 rounded-full text-sm font-medium text-mono-700 hover:bg-mono-100 transition-colors"
                   >
-                    취소
+                    나중에 남길게요
                   </button>
                   <button
                     type="submit"
                     disabled={status === 'submitting' || !rating}
-                    className="px-5 py-2.5 rounded-full bg-mono-900 text-mono-50 text-sm font-medium hover:bg-mono-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-5 py-2.5 rounded-full bg-mono-900 text-mono-50 text-sm font-medium hover:bg-orange transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    {status === 'submitting' ? '제출 중…' : '의견 보내기'}
+                    {status === 'submitting' ? '제출 중…' : '의견 남기기'}
                   </button>
                 </div>
               </form>

@@ -1,128 +1,112 @@
 'use client'
 
-import Image from 'next/image'
 import Link from 'next/link'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { createBrowserSupabase } from '@/lib/supabase/client'
 import { initMixpanel, track } from '@/lib/mixpanel'
 
-type Mode = 'metric' | 'star'
+type FollowupQuestion = { topic: string; items: string[] }
+type Result = { sentence: string; chips: string[]; ts: string; original: string }
+type NeedsInfo = { questions: FollowupQuestion[]; original: string }
 type SaveState = 'idle' | 'saving' | 'saved'
+type PendingAfter = 'save' | 'history' | null
 
-type Tile = {
-  src: string
-  top?: string
-  bottom?: string
-  left?: string
-  right?: string
-  width: string
-  aspect: string
+type TransformResponse =
+  | { type: 'result'; sentence: string; chips: string[] }
+  | { type: 'needs_info'; questions: FollowupQuestion[] }
+  | { error: string }
+
+function formatMonthDay(iso: string) {
+  const d = new Date(iso)
+  return `${d.getMonth() + 1}월 ${d.getDate()}일`
 }
 
-// 좌측 3행(상/중/하) + 우측 3행(상/중/하) + 상단 가운데 작은 1장.
-// 각 타일이 서로 안 겹치도록 행끼리 y 분리, 좌우끼리 x 분리.
-// 사진 톤: 캐주얼한 스타트업/코워킹 분위기.
-const MOSAIC_TILES = [
-  // 좌측 컬럼
-  { src: 'https://images.unsplash.com/photo-1510074468346-504b4d8a8630', top: '-2%',    left: '-3%', width: '16%', aspect: '3 / 4' },
-  { src: 'https://images.unsplash.com/photo-1616587226157-48e49175ee20', top: '36%',    left: '-2%', width: '11%', aspect: '1 / 1' },
-  { src: 'https://images.unsplash.com/photo-1609761973820-17fe079a78dc', bottom: '12%', left: '2%',  width: '14%', aspect: '5 / 4' },
-  // 상단 가운데
-  { src: 'https://images.unsplash.com/photo-1456324504439-367cee3b3c32', top: '4%',     left: '24%', width: '9%',  aspect: '4 / 3' },
-  // 우측 컬럼
-  { src: 'https://images.unsplash.com/photo-1587554801471-37976a256db0', top: '-2%',    right: '-2%', width: '16%', aspect: '3 / 4' },
-  { src: 'https://images.unsplash.com/photo-1773332598413-a6d5279d1ae8', top: '34%',    right: '-3%', width: '11%', aspect: '1 / 1' },
-  { src: 'https://images.unsplash.com/photo-1499750310107-5fef28a66643', bottom: '10%', right: '4%',  width: '13%', aspect: '4 / 5' },
-] satisfies Tile[]
+function answerKey(qi: number, ii: number) {
+  return `${qi}-${ii}`
+}
 
-function BackgroundMosaic() {
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[110vh] overflow-hidden hidden md:block"
-    >
-      {MOSAIC_TILES.map((tile, i) => (
-        <div
-          key={i}
-          className="absolute rounded-3xl overflow-hidden opacity-55 shadow-[0_8px_32px_rgba(14,14,16,0.06)]"
-          style={{
-            top: tile.top,
-            bottom: tile.bottom,
-            left: tile.left,
-            right: tile.right,
-            width: tile.width,
-            aspectRatio: tile.aspect,
-          }}
-        >
-          <Image
-            src={`${tile.src}?w=600&q=70&auto=format`}
-            alt=""
-            fill
-            sizes="25vw"
-            className="object-cover blur-[2px] contrast-[1.0]"
-          />
-        </div>
-      ))}
-      {/* 중앙 페이드 — 헤드라인/카드 영역 보호 */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_55%_at_50%_42%,_white_30%,_rgba(255,255,255,0.6)_62%,_transparent_92%)]" />
-      {/* 하단 페이드 — 모자이크가 콘텐츠 영역으로 자연스럽게 사라지도록 */}
-      <div className="absolute inset-x-0 bottom-0 h-[65%] bg-[linear-gradient(to_bottom,_transparent_0%,_rgba(255,255,255,0.55)_30%,_rgba(255,255,255,0.92)_65%,_white_90%)]" />
-    </div>
-  )
+// "질문? (예: ...)" 형태에서 끝의 괄호 부분만 분리해 작게 표시.
+function splitQuestion(text: string): { main: string; example: string | null } {
+  const m = text.match(/^(.*?)\s*(\([^)]*\))\s*$/)
+  return m
+    ? { main: m[1].trim(), example: m[2].trim() }
+    : { main: text.trim(), example: null }
 }
 
 export default function Home() {
   const [rawText, setRawText] = useState('')
-  const [metricResult, setMetricResult] = useState<string | null>(null)
-  const [starResult, setStarResult] = useState<string | null>(null)
-  const [loading, setLoading] = useState<Mode | null>(null)
+  const [result, setResult] = useState<Result | null>(null)
+  const [needsInfo, setNeedsInfo] = useState<NeedsInfo | null>(null)
+  const [answers, setAnswers] = useState<Record<string, string>>({})
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saveState, setSaveState] = useState<SaveState>('idle')
-  const [copiedKey, setCopiedKey] = useState<Mode | null>(null)
   const [user, setUser] = useState<User | null>(null)
-  const pendingSave = useRef<{ rawText: string; metricResult: string; starResult: string | null } | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [pendingAfter, setPendingAfter] = useState<PendingAfter>(null)
+  const [oauthBusy, setOauthBusy] = useState(false)
+  const [toastMsg, setToastMsg] = useState('저장되었습니다')
+  const [toastVisible, setToastVisible] = useState(false)
+  const [toastCta, setToastCta] = useState<{ label: string; href: string } | null>(null)
+
+  const pendingSave = useRef<{
+    rawText: string
+    metricResult: string
+    chips: string[]
+  } | null>(null)
   const inputStarted = useRef(false)
   const inputStartedAt = useRef<number | null>(null)
   const transformAttempt = useRef(0)
   const transformStartedAt = useRef<number | null>(null)
-  const resultAppearedAt = useRef<number | null>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Mixpanel 초기화 — user 상태 변경 시 super props 갱신
   useEffect(() => {
     initMixpanel(user?.id)
   }, [user])
 
-  // output_viewed — 수치 성과 결과가 처음 나타날 때
   useEffect(() => {
-    if (!metricResult) return
-    resultAppearedAt.current = Date.now()
+    if (!result) return
     track('output_viewed', { scroll_depth: 0, time_on_result_sec: 0 })
-  }, [metricResult])
+  }, [result])
 
+  // 로그인 후 복귀 시 pending_save 복원
   useEffect(() => {
-    // 로그인 리디렉션 전에 저장했던 상태 복원
     const saved = sessionStorage.getItem('pending_save')
     if (saved) {
       try {
-        const data = JSON.parse(saved) as { rawText: string; metricResult: string; starResult: string | null }
+        const data = JSON.parse(saved) as {
+          rawText: string
+          metricResult: string
+          chips?: string[]
+        }
         setRawText(data.rawText ?? '')
-        setMetricResult(data.metricResult ?? null)
-        setStarResult(data.starResult ?? null)
-        pendingSave.current = data
+        if (data.metricResult) {
+          setResult({
+            sentence: data.metricResult,
+            chips: data.chips ?? [],
+            ts: new Date().toISOString(),
+            original: data.rawText ?? '',
+          })
+        }
+        pendingSave.current = {
+          rawText: data.rawText,
+          metricResult: data.metricResult,
+          chips: data.chips ?? [],
+        }
         sessionStorage.removeItem('pending_save')
       } catch {}
     }
 
     const supabase = createBrowserSupabase()
     supabase.auth.getUser().then(({ data }) => setUser(data.user))
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user ?? null)
     })
     return () => sub.subscription.unsubscribe()
   }, [])
 
-  // 로그인 완료 후 pending 저장 자동 실행
+  // 로그인 후 자동 저장
   useEffect(() => {
     if (!user || !pendingSave.current) return
     const data = pendingSave.current
@@ -131,12 +115,22 @@ export default function Home() {
     fetch('/api/entries', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        rawText: data.rawText,
+        metricResult: data.metricResult,
+        starResult: null,
+        chips: data.chips,
+      }),
     })
       .then((r) => r.json())
       .then((json) => {
         if (json.error) throw new Error(json.error)
+        track('save_completed', {})
         setSaveState('saved')
+        showToast('저장이 완료되었습니다', {
+          label: '커리어 기록함 바로가기',
+          href: '/history',
+        })
       })
       .catch((e) => {
         setSaveState('idle')
@@ -144,102 +138,168 @@ export default function Home() {
       })
   }, [user])
 
-  async function onSignOut() {
-    const supabase = createBrowserSupabase()
-    await supabase.auth.signOut()
-    setUser(null)
+  function showToast(
+    msg: string,
+    cta: { label: string; href: string } | null = null
+  ) {
+    setToastMsg(msg)
+    setToastCta(cta)
+    setToastVisible(true)
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToastVisible(false), 3000)
   }
 
-  async function onCopy(key: Mode, text: string) {
-    track('copy_clicked', { logged_in: !!user, copy_target: key })
-    try {
-      await navigator.clipboard.writeText(text)
-      setCopiedKey(key)
-      setTimeout(() => {
-        setCopiedKey((prev) => (prev === key ? null : prev))
-      }, 1500)
-    } catch {
-      setError('클립보드 복사에 실패했습니다.')
+  function clearOutputs() {
+    setResult(null)
+    setNeedsInfo(null)
+    setAnswers({})
+    setSaveState('idle')
+  }
+
+  function onInputChange(val: string) {
+    if (!inputStarted.current && val.trim()) {
+      inputStarted.current = true
+      inputStartedAt.current = Date.now()
+      track('input_started', {
+        char_count: val.length,
+        input_type: val.length < 100 ? 'short' : 'long',
+      })
     }
+    if (inputStarted.current && !val.trim()) {
+      inputStarted.current = false
+      track('input_cleared', {
+        time_spent_sec: inputStartedAt.current
+          ? Math.round((Date.now() - inputStartedAt.current) / 1000)
+          : 0,
+      })
+      inputStartedAt.current = null
+    }
+    setRawText(val)
+    if (!val.trim() && (result || needsInfo)) clearOutputs()
   }
 
-  async function transform(mode: Mode, text: string) {
-    setLoading(mode)
+  async function runTransform(textForApi: string, originalForRecord: string) {
+    setLoading(true)
     setError(null)
+    transformStartedAt.current = Date.now()
     try {
       const res = await fetch('/api/transform', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode, text }),
+        body: JSON.stringify({ mode: 'metric', text: textForApi }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? '요청 실패')
-      return data.result as string
+      const data = (await res.json()) as TransformResponse
+      if (!res.ok || 'error' in data) {
+        throw new Error(('error' in data && data.error) || '요청 실패')
+      }
+      const latency_ms = Date.now() - (transformStartedAt.current ?? Date.now())
+      if (data.type === 'needs_info') {
+        track('transform_needs_info', { latency_ms })
+        setNeedsInfo({ questions: data.questions, original: originalForRecord })
+        setResult(null)
+        setAnswers({})
+      } else {
+        track('transform_completed', {
+          latency_ms,
+          output_length: data.sentence.length,
+          star_method_used: false,
+        })
+        setResult({
+          sentence: data.sentence,
+          chips: data.chips,
+          ts: new Date().toISOString(),
+          original: originalForRecord,
+        })
+        setNeedsInfo(null)
+        setSaveState('idle')
+      }
+    } catch (err) {
+      setError((err as Error).message)
     } finally {
-      setLoading(null)
+      setLoading(false)
     }
   }
 
-  async function onTransformMetric() {
-    if (!rawText.trim()) {
+  async function onTransform(e?: FormEvent) {
+    e?.preventDefault()
+    const text = rawText.trim()
+    if (!text) {
       setError('변환할 업무 기록을 입력해주세요.')
       return
     }
+    setError(null)
     transformAttempt.current += 1
-    const isRegenerate = metricResult !== null
+    const isRegenerate = result !== null
     track('input_submitted', {
-      char_count: rawText.length,
-      word_count: rawText.trim().split(/\s+/).length,
-      has_numbers: /\d/.test(rawText),
+      char_count: text.length,
+      word_count: text.split(/\s+/).length,
+      has_numbers: /\d/.test(text),
     })
     if (isRegenerate) {
-      track('transform_regenerated', { reason: 'retry', attempt_count: transformAttempt.current })
-    } else {
-      track('transform_requested', { input_length: rawText.length })
-    }
-    transformStartedAt.current = Date.now()
-    try {
-      const result = await transform('metric', rawText)
-      const latency_ms = Date.now() - (transformStartedAt.current ?? Date.now())
-      track('transform_completed', {
-        latency_ms,
-        output_length: result.length,
-        star_method_used: false,
+      track('transform_regenerated', {
+        reason: 'retry',
+        attempt_count: transformAttempt.current,
       })
-      setMetricResult(result)
-      setStarResult(null)
-      setSaveState('idle')
-    } catch (e) {
-      setError((e as Error).message)
+    } else {
+      track('transform_requested', { input_length: text.length })
     }
+    await runTransform(text, text)
   }
 
-  async function onTransformStar() {
-    if (!metricResult) return
-    track('transform_requested', { input_length: metricResult.length })
-    transformStartedAt.current = Date.now()
-    try {
-      const result = await transform('star', metricResult)
-      const latency_ms = Date.now() - (transformStartedAt.current ?? Date.now())
-      track('transform_completed', {
-        latency_ms,
-        output_length: result.length,
-        star_method_used: true,
+  async function onRetryWithAnswers() {
+    if (!needsInfo) return
+    const lines: string[] = [needsInfo.original]
+    let answered = 0
+    needsInfo.questions.forEach((q, qi) => {
+      const blockLines: string[] = []
+      q.items.forEach((item, ii) => {
+        const a = (answers[answerKey(qi, ii)] ?? '').trim()
+        if (a) {
+          blockLines.push(`- ${item} → ${a}`)
+          answered += 1
+        }
       })
-      setStarResult(result)
-      setSaveState('idle')
-    } catch (e) {
-      setError((e as Error).message)
+      if (blockLines.length) {
+        lines.push(`[${q.topic}]`)
+        lines.push(...blockLines)
+      }
+    })
+    track('followup_answered', {
+      questions_total: needsInfo.questions.reduce((n, q) => n + q.items.length, 0),
+      questions_answered: answered,
+    })
+    const merged = lines.join('\n')
+    await runTransform(merged, merged)
+  }
+
+  async function onCopy() {
+    if (!result) return
+    track('copy_clicked', { logged_in: !!user, copy_target: 'metric' })
+    try {
+      await navigator.clipboard.writeText(result.sentence)
+    } catch {
+      const ta = document.createElement('textarea')
+      ta.value = result.sentence
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
     }
+    showToast('성과 문장이 복사되었습니다')
   }
 
   async function onSave() {
-    if (!metricResult) return
+    if (!result) return
     track('save_attempted', { logged_in: !!user })
     if (!user) {
       track('login_prompted', { trigger: 'save_click', provider: 'google' })
-      sessionStorage.setItem('pending_save', JSON.stringify({ rawText, metricResult, starResult }))
-      window.location.href = '/login?next=/'
+      pendingSave.current = {
+        rawText: result.original,
+        metricResult: result.sentence,
+        chips: result.chips,
+      }
+      setPendingAfter('save')
+      setModalOpen(true)
       return
     }
     setSaveState('saving')
@@ -248,209 +308,707 @@ export default function Home() {
       const res = await fetch('/api/entries', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rawText, metricResult, starResult }),
+        body: JSON.stringify({
+          rawText: result.original,
+          metricResult: result.sentence,
+          starResult: null,
+          chips: result.chips,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? '저장 실패')
       track('save_completed', {})
       setSaveState('saved')
-    } catch (e) {
+      showToast('저장이 완료되었습니다', {
+        label: '커리어 기록함 바로가기',
+        href: '/history',
+      })
+    } catch (err) {
       setSaveState('idle')
-      setError((e as Error).message)
+      setError((err as Error).message)
     }
   }
 
-  const userLabel =
+  function onClickHistory(e: React.MouseEvent) {
+    if (!user) {
+      e.preventDefault()
+      track('login_prompted', { trigger: 'history_click', provider: 'google' })
+      setPendingAfter('history')
+      setModalOpen(true)
+    }
+  }
+
+  async function onGoogleSignIn() {
+    setOauthBusy(true)
+    setError(null)
+    try {
+      if (pendingAfter === 'save' && result) {
+        sessionStorage.setItem(
+          'pending_save',
+          JSON.stringify({
+            rawText: result.original,
+            metricResult: result.sentence,
+            chips: result.chips,
+          })
+        )
+      }
+      const next = pendingAfter === 'history' ? '/history' : '/'
+      const supabase = createBrowserSupabase()
+      const callback = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
+      const { error: oauthErr } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: callback },
+      })
+      if (oauthErr) throw oauthErr
+    } catch (err) {
+      setOauthBusy(false)
+      setError((err as Error).message)
+    }
+  }
+
+  async function onSignOut() {
+    const supabase = createBrowserSupabase()
+    await supabase.auth.signOut()
+    setUser(null)
+    showToast('로그아웃되었습니다')
+  }
+
+  function onTopCta(e: React.MouseEvent) {
+    e.preventDefault()
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const userName =
     user?.user_metadata?.name ??
     user?.user_metadata?.full_name ??
     user?.email ??
-    null
+    'User'
+  const userInitial = userName.charAt(0).toUpperCase()
+
+  const showEmpty = !loading && !result && !needsInfo
+  const submitLabel = loading
+    ? '변환 중…'
+    : result || needsInfo
+    ? '다시 변환하기'
+    : '성과 문장으로 바꾸기'
 
   return (
-    <div className="relative isolate flex flex-col flex-1">
-      <BackgroundMosaic />
-      <header className="sticky top-0 z-10 flex justify-center pt-6 pb-2">
-        <div className="pill px-2 py-1 text-sm font-medium text-mono-700 flex items-center gap-1">
-          <Link
-            href="/history"
-            className="px-3 py-1.5 rounded-full hover:bg-mono-100 transition-colors text-mono-700"
-          >
-            저장된 기록
-          </Link>
-          {user ? (
-            <>
-              <span className="px-3 py-1.5 text-mono-400 truncate max-w-[12rem]">
-                {userLabel}
-              </span>
-              <button
-                onClick={onSignOut}
-                className="px-3 py-1.5 rounded-full hover:bg-mono-100 transition-colors text-mono-700"
-              >
-                로그아웃
-              </button>
-            </>
-          ) : (
-            <Link
-              href="/login"
-              className="px-3 py-1.5 rounded-full bg-mono-900 text-mono-50 hover:bg-mono-700 transition-colors"
-            >
-              로그인
+    <div className="cb-landing flex-1 flex flex-col">
+      <header className="nav">
+        <div className="nav-inner">
+          <a href="#top" className="brand" aria-label="Career Builder">
+            <span className="brand-name">Career Builder</span>
+          </a>
+          <nav className="nav-links" aria-label="Main">
+            <Link href="/history" onClick={onClickHistory}>
+              커리어 기록함
             </Link>
-          )}
+            {user ? (
+              <span className="nav-avatar show">
+                <span className="av">{userInitial}</span>
+                <span>{userName}</span>
+                <button type="button" className="logout" onClick={onSignOut}>
+                  로그아웃
+                </button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                className="nav-cta"
+                onClick={() => {
+                  setPendingAfter(null)
+                  setModalOpen(true)
+                }}
+              >
+                Login
+              </button>
+            )}
+          </nav>
         </div>
       </header>
 
-      <main className="flex-1 w-full max-w-6xl mx-auto px-6 pb-24">
-        <section className="text-center pt-16 pb-14 sm:pt-24 sm:pb-20">
-          <p className="text-xs sm:text-sm uppercase tracking-[0.28em] text-mono-400 mb-5 sm:mb-6">
-            AI Career Builder
-          </p>
-          <h1 className="text-4xl sm:text-6xl font-semibold tracking-tight leading-[1.1] text-mono-900">
-            일상 기록을 성과로
-          </h1>
-          <p className="mt-6 text-base sm:text-lg text-mono-700 max-w-xl mx-auto">
-            업무 기록을 수치 중심의 성과 문장으로 바꾸고,
-            <br className="hidden sm:block" />
-            필요할 때 STAR 기법으로 한 번 더 다듬어드립니다.
-          </p>
+      <main id="top" className="flex-1">
+        <section className="hero" id="hero">
+          <div className="hero-grid">
+            <div className="hero-copy">
+              <span className="eyebrow">
+                <span className="dot" />
+                AI 커리어 기록 서비스
+              </span>
+              <h1 style={{ marginTop: 24, fontSize: 'clamp(32px, 6vw, 52px)' }}>
+                오늘 한 일을,
+                <br />
+                내일의 <span className="accent">커리어 문장</span>으로.
+              </h1>
+              <p className="hero-sub lede" style={{ maxWidth: 500 }}>
+                입력은 최대한 가볍게도 해도 좋아요. AI가 성과 중심 문장으로 바꾸고,
+                역량별 커리어 자산으로 차곡차곡 쌓아드립니다.
+              </p>
+              <div className="hero-meta">
+                <div className="stat">
+                  <strong>3,200+</strong>주니어 직장인
+                </div>
+                <div className="sep" />
+                <div className="stat">
+                  <strong>48,000개</strong>의 성과 문장
+                </div>
+                <div className="sep" />
+                <div className="stat">
+                  <strong>매일 1줄</strong>이면 충분
+                </div>
+              </div>
+            </div>
+
+            <div className="cta-card">
+              <div className="cta-input-block">
+                <div className="cta-input-label">
+                  <span className="pulse" />
+                  오늘의 업무 기록
+                </div>
+                <div className="cta-input-question">오늘 어떤 일을 했나요?</div>
+                <div className="cta-input-helper">
+                  완벽하게 쓰지 않아도 괜찮아요. 한 줄이면 충분합니다.
+                </div>
+                <form className="cta-input-row" onSubmit={onTransform}>
+                  <input
+                    type="text"
+                    value={rawText}
+                    onChange={(e) => onInputChange(e.target.value)}
+                    placeholder="예: 회의록 정리하고 수정사항 팀에 공유함"
+                    autoComplete="off"
+                  />
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={loading}
+                  >
+                    {submitLabel}
+                  </button>
+                </form>
+              </div>
+
+              <div className="cta-result">
+                <div className="cta-result-head">
+                  <div className="label">
+                    <span className="ai-dot" />
+                    {needsInfo ? '추가 정보 필요' : '성과 문장'}
+                  </div>
+                  <div className="meta">
+                    {loading
+                      ? 'AI가 정리하는 중…'
+                      : result
+                      ? `방금 변환됨 · ${formatMonthDay(result.ts)}`
+                      : needsInfo
+                      ? '몇 가지 답변이 필요해요'
+                      : '변환 대기 중'}
+                  </div>
+                </div>
+
+                {showEmpty && (
+                  <div className="cta-result-empty">
+                    <span className="empty-icon" aria-hidden>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 5v14" />
+                        <path d="M5 12h14" />
+                      </svg>
+                    </span>
+                    한 줄 적고 ‘성과 문장으로 바꾸기’를 눌러보세요.
+                  </div>
+                )}
+
+                {loading && (
+                  <div className="cta-result-loading">
+                    <div className="skeleton-line" />
+                    <div className="skeleton-line" />
+                    <div className="skeleton-line short" />
+                  </div>
+                )}
+
+                {!loading && result && (
+                  <div className="cb-fade-in">
+                    <div className="cta-result-body">
+                      <p className="cta-result-sentence">{result.sentence}</p>
+                      {result.chips.length > 0 && (
+                        <div className="skill-chips">
+                          {result.chips.map((label) => (
+                            <span key={label} className="chip">
+                              {label}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="cta-actions">
+                      <button
+                        type="button"
+                        className="cta-action-btn primary"
+                        disabled={saveState === 'saving' || saveState === 'saved'}
+                        onClick={onSave}
+                      >
+                        {saveState === 'saving' ? (
+                          <>
+                            <span className="cb-spinner" aria-hidden />
+                            저장 중…
+                          </>
+                        ) : saveState === 'saved' ? (
+                          <>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M20 6 9 17l-5-5" />
+                            </svg>
+                            저장됨
+                          </>
+                        ) : (
+                          <>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                              <polyline points="17 21 17 13 7 13 7 21" />
+                              <polyline points="7 3 7 8 15 8" />
+                            </svg>
+                            커리어 기록함에 저장
+                          </>
+                        )}
+                      </button>
+                      <button type="button" className="cta-action-btn" onClick={onCopy}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                        </svg>
+                        복사
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {!loading && needsInfo && (
+                  <div className="cb-fade-in">
+                    <div className="cta-followup-card">
+                      <div className="cta-followup-intro">
+                        몇 가지 정보를 더 알려주시면 더 정확한 성과 문장으로 정리해드릴 수 있어요.
+                        모르는 항목은 비워두셔도 됩니다.
+                      </div>
+                      {needsInfo.questions.map((q, qi) => (
+                        <div key={`${q.topic}-${qi}`} className="cta-followup-block">
+                          <div className="cta-followup-topic">{q.topic}</div>
+                          {q.items.map((item, ii) => {
+                            const k = answerKey(qi, ii)
+                            const { main, example } = splitQuestion(item)
+                            return (
+                              <div key={k} className="cta-followup-row">
+                                <label className="cta-followup-q" htmlFor={`fu-${k}`}>
+                                  {main}
+                                  {example && (
+                                    <span className="cta-followup-q-example">
+                                      {example}
+                                    </span>
+                                  )}
+                                </label>
+                                <input
+                                  id={`fu-${k}`}
+                                  className="cta-followup-a"
+                                  type="text"
+                                  value={answers[k] ?? ''}
+                                  onChange={(e) =>
+                                    setAnswers((prev) => ({ ...prev, [k]: e.target.value }))
+                                  }
+                                  placeholder="답변 입력"
+                                  autoComplete="off"
+                                />
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="cta-actions">
+                      <button
+                        type="button"
+                        className="cta-action-btn primary"
+                        onClick={onRetryWithAnswers}
+                        disabled={loading}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="23 4 23 10 17 10" />
+                          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                        </svg>
+                        답변 합쳐서 다시 변환
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {error && (
+                  <p style={{ marginTop: 12, fontSize: 13, color: 'var(--ink-700)', background: 'var(--ink-100)', padding: '8px 12px', borderRadius: 10 }}>
+                    {error}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
         </section>
 
-        <section className="grid gap-6 sm:gap-7 md:grid-cols-[1.2fr_1fr] md:auto-rows-min">
-          <div className="panel-strong p-6 sm:p-7 md:row-span-2">
-            <label className="block text-xs font-medium uppercase tracking-wider text-mono-400 mb-3">
-              업무 기록 입력
-            </label>
-            <textarea
-              value={rawText}
-              onChange={(e) => {
-                const val = e.target.value
-                if (!inputStarted.current && val.trim()) {
-                  inputStarted.current = true
-                  inputStartedAt.current = Date.now()
-                  track('input_started', {
-                    char_count: val.length,
-                    input_type: val.length < 100 ? 'short' : 'long',
-                  })
-                }
-                if (inputStarted.current && !val.trim()) {
-                  inputStarted.current = false
-                  track('input_cleared', {
-                    time_spent_sec: inputStartedAt.current
-                      ? Math.round((Date.now() - inputStartedAt.current) / 1000)
-                      : 0,
-                  })
-                  inputStartedAt.current = null
-                }
-                setRawText(val)
-              }}
-              placeholder={`오늘의 업무 기록
-1. 주요 화면 UX 이슈 확인 및 사용자 피드백 리뷰 (데이터/VOC 121건)
-2. 개선이 필요한 플로우 1~2개 선정 후 와이어프레임 또는 시안 작업
-3. 개발자 또는 PM과 스펙 협의 및 디자인 의도 공유 (1~2건)
-4. 디자인 시스템 컴포넌트 점검 또는 신규 컴포넌트 정의
-5. 경쟁 서비스 또는 레퍼런스 빠르게 탐색하여 인사이트 메모
-6. 오늘 작업한 디자인 결과물 및 다음 액션 간단히 정리`}
-              className="w-full h-64 sm:h-80 resize-none bg-transparent text-base leading-7 text-mono-900 placeholder-mono-400 outline-none"
-            />
-            <div className="mt-5 flex items-center justify-between gap-3">
-              <span className="text-xs text-mono-400">
-                {rawText.length} / 5000
-              </span>
-              <button
-                onClick={onTransformMetric}
-                disabled={loading !== null}
-                className="px-5 py-2.5 rounded-full bg-mono-900 text-mono-50 text-sm font-medium hover:bg-mono-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {loading === 'metric' ? '변환 중…' : '성과 변환'}
-              </button>
-            </div>
-            {error && (
-              <p className="mt-4 text-sm text-mono-700 bg-mono-100 px-4 py-2 rounded-lg">
-                {error}
+        <section className="problem" id="problem">
+          <div className="cb-container">
+            <div className="section-head">
+              <span className="eyebrow">커리어 기록의 부담</span>
+              <h2>
+                열심히 일했는데,
+                <br />
+                막상 쓸 말이 없었던 적 있나요?
+              </h2>
+              <p className="lede" style={{ maxWidth: 550 }}>
+                매일 분명히 일은 했지만, 이력서를 쓰려고 하면 빈 페이지를 마주하게 됩니다.
+                아래 네 가지 순간이 반복된다면 Career Builder가 필요해요.
               </p>
-            )}
-          </div>
+            </div>
 
-          <div className="panel p-6 sm:p-7 min-h-[14rem]">
-            <div className="flex items-center justify-between mb-3 gap-2">
-              <label className="block text-xs font-medium uppercase tracking-wider text-mono-400">
-                수치 성과 문장
-              </label>
-              {metricResult && (
-                <div className="flex items-center gap-2 flex-wrap justify-end">
-                  <button
-                    onClick={() => onCopy('metric', metricResult)}
-                    className="px-3.5 py-1.5 rounded-full bg-white/70 border border-mono-200 text-xs font-medium text-mono-900 hover:bg-white transition-colors"
-                  >
-                    {copiedKey === 'metric' ? '복사됨 ✓' : '복사'}
-                  </button>
-                  <button
-                    onClick={onTransformStar}
-                    disabled={loading !== null}
-                    className="px-3.5 py-1.5 rounded-full bg-white/70 border border-mono-200 text-xs font-medium text-mono-900 hover:bg-white transition-colors disabled:opacity-40"
-                  >
-                    {loading === 'star' ? 'STAR 정리 중…' : 'STAR 기법으로 교정'}
-                  </button>
-                  <button
-                    onClick={onSave}
-                    disabled={saveState === 'saving'}
-                    className="px-3.5 py-1.5 rounded-full bg-mono-900 text-mono-50 text-xs font-medium hover:bg-mono-700 transition-colors disabled:opacity-40"
-                  >
-                    {saveState === 'saving'
-                      ? '저장 중…'
-                      : saveState === 'saved'
-                      ? '저장됨 ✓'
-                      : user
-                      ? '저장'
-                      : '로그인 후 저장'}
-                  </button>
+            <div className="problem-grid">
+              <article className="problem-card">
+                <span className="problem-num">PROBLEM 01</span>
+                <h3 className="problem-title">기억이 나지 않아요</h3>
+                <p className="problem-desc">
+                  이직이나 지원 시점이 되어서야 “내가 그동안 뭘 했지?”를 다시 떠올리려 합니다.
+                  대부분의 작은 성과들은 이미 흩어진 뒤죠.
+                </p>
+                <div className="problem-quote">“3개월 전에 했던 그 프로젝트, 무슨 결과였더라…”</div>
+              </article>
+
+              <article className="problem-card">
+                <span className="problem-num">PROBLEM 02</span>
+                <h3 className="problem-title">수치화가 어려워요</h3>
+                <p className="problem-desc">
+                  업무를 ‘성과’와 ‘지표’ 중심으로 표현하는 일은 생각보다 어렵습니다.
+                  “회의했음” 한 줄을 어떻게 임팩트 있게 적어야 할지 막막합니다.
+                </p>
+                <div className="problem-quote">“그냥… 회의했다고만 쓰면 너무 약한 것 같은데?”</div>
+              </article>
+
+              <article className="problem-card">
+                <span className="problem-num">PROBLEM 03</span>
+                <h3 className="problem-title">정리가 매일 밀려요</h3>
+                <p className="problem-desc">
+                  하루가 끝나면 피곤해서 기록을 미루게 되고, 며칠 후에는 무엇을 적어야 할지조차 잊어버립니다.
+                  기록의 부담이 결국 기록을 포기하게 만듭니다.
+                </p>
+                <div className="problem-quote">“내일부터 적어야지” × 60일</div>
+              </article>
+
+              <article className="problem-card">
+                <span className="problem-num">PROBLEM 04</span>
+                <h3 className="problem-title">역량 연결이 안 돼요</h3>
+                <p className="problem-desc">
+                  오늘 한 일이 어떤 커리어 강점으로 이어지는지 알기 어렵습니다.
+                  정리되지 않은 기록은 ‘나의 역량 지도’가 되지 못한 채 흩어집니다.
+                </p>
+                <div className="problem-quote">“이게 협업 능력인 건가, 문제 해결인 건가?”</div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section className="solution" id="solution">
+          <div className="cb-container">
+            <div className="section-head center">
+              <span className="eyebrow">결과는 전문적으로</span>
+              <h2>
+                한 줄만 적으면,
+                <br />
+                AI가 성과 문장으로 정리합니다.
+              </h2>
+              <p className="lede" style={{ maxWidth: 550 }}>
+                가볍게 입력한 한 줄을 핵심 행동 · 연결 역량 · 성과 지표로 분해하고,
+                이력서와 자기소개서에 그대로 쓸 수 있는 문장으로 다듬어드립니다.
+              </p>
+            </div>
+
+            <div className="solution-stage">
+              <div className="solution-grid">
+                <div>
+                  <div className="step-label">
+                    <span className="step-num">01</span>
+                    오늘의 한 줄
+                  </div>
+                  <div className="before-card" style={{ marginTop: 14 }}>
+                    <p className="before-text">회의록 정리하고 수정사항 팀에 공유함</p>
+                    <div className="before-meta">
+                      <span>5월 6일 · 6:42 PM</span>
+                      <span className="typed-len">21자</span>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </div>
-            {metricResult ? (
-              <pre className="whitespace-pre-wrap text-sm leading-7 text-mono-900 font-sans">
-                {metricResult}
-              </pre>
-            ) : (
-              <p className="text-sm text-mono-400">
-                왼쪽에 업무 기록을 입력하고 변환 버튼을 누르면 결과가 여기에 표시됩니다.
-              </p>
-            )}
-          </div>
 
-          <div className="panel p-6 sm:p-7 min-h-[14rem]">
-            <div className="flex items-center justify-between mb-3 gap-2">
-              <label className="block text-xs font-medium uppercase tracking-wider text-mono-400">
-                STAR 구조 결과
-              </label>
-              {starResult && (
-                <button
-                  onClick={() => onCopy('star', starResult)}
-                  className="px-3.5 py-1.5 rounded-full bg-white/70 border border-mono-200 text-xs font-medium text-mono-900 hover:bg-white transition-colors"
-                >
-                  {copiedKey === 'star' ? '복사됨 ✓' : '복사'}
-                </button>
-              )}
+                <div className="arrow-col" aria-hidden>
+                  <span className="ai-pill">
+                    <span className="ai-dot" />
+                    AI 변환
+                  </span>
+                  <div className="arrow-line" />
+                  <div className="arrow-tip" />
+                </div>
+
+                <div>
+                  <div className="step-label">
+                    <span className="step-num">02</span>
+                    성과 문장 + 연결 역량
+                  </div>
+                  <div className="after-card" style={{ marginTop: 14 }}>
+                    <p className="after-text">
+                      디자인 리뷰 회의의 주요 피드백과 수정사항을 정리해 팀에 공유함으로써,
+                      <span className="hl"> 후속 작업의 기준을 명확히 하고 </span>
+                      협업 커뮤니케이션 효율을 높였습니다.
+                    </p>
+                    <div className="after-meta" aria-label="연결된 역량">
+                      <span className="chip">협업 커뮤니케이션</span>
+                      <span className="chip">문서화</span>
+                      <span className="chip">문제 정의</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="followup">
+                <div className="followup-title">
+                  <span className="icon" aria-hidden />
+                  더 구체적인 성과 문장으로 만들기 위한 질문
+                </div>
+                <div className="followup-list">
+                  <span>· 정리한 피드백은 몇 건이었나요?</span>
+                  <span>· 공유 이후 어떤 액션 아이템이 결정되었나요?</span>
+                  <span>· 후속 작업 시간이 이전보다 얼마나 단축되었나요?</span>
+                </div>
+              </div>
             </div>
-            {starResult ? (
-              <pre className="whitespace-pre-wrap text-sm leading-7 text-mono-900 font-sans">
-                {starResult}
-              </pre>
-            ) : (
-              <p className="text-sm text-mono-400">
-                수치 성과 문장이 만들어진 뒤 ‘STAR 기법으로 교정’ 버튼을 누르면 4단 구조로 정리해드립니다.
+          </div>
+        </section>
+
+        <section className="features" id="feature">
+          <div className="cb-container">
+            <div className="section-head">
+              <span className="eyebrow">AI가 찾은 핵심 업무</span>
+              <h2>
+                기록할수록,
+                <br />
+                나의 역량 지도가 확장됩니다.
+              </h2>
+              <p className="lede" style={{ maxWidth: 550 }}>
+                입력은 가볍게, 결과는 전문적으로. Career Builder의 다섯 가지 핵심 기능이
+                매일의 작은 업무를 커리어 자산으로 바꿔드립니다.
               </p>
-            )}
+            </div>
+
+            <div className="feature-grid">
+              <article className="feature-card span-3">
+                <span className="feature-tag">01 · WORK LOG INPUT</span>
+                <h3 className="feature-title">한 줄 업무 기록</h3>
+                <p className="feature-desc">
+                  완벽한 문장이 아니어도 괜찮아요. 회의·수정·조사·공유처럼 떠오르는 대로
+                  짧게 적기만 하면 시작됩니다.
+                </p>
+                <div className="feature-visual">
+                  <div className="fv-input" style={{ marginBottom: 8 }}>
+                    <span className="icon">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4Z" />
+                      </svg>
+                    </span>
+                    경쟁사 UX 조사해서 팀에 공유함
+                  </div>
+                  <div className="fv-input">
+                    <span className="icon">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4Z" />
+                      </svg>
+                    </span>
+                    피그마 컴포넌트 정리하고 개발자에게 전달함
+                    <span className="cursor" />
+                  </div>
+                </div>
+              </article>
+
+              <article className="feature-card span-3">
+                <span className="feature-tag">02 · IMPACT CONVERT</span>
+                <h3 className="feature-title">AI 성과 변환</h3>
+                <p className="feature-desc">
+                  경력기술서·자기소개서·포트폴리오에 그대로 쓸 수 있는 성과 중심 문장으로 바꿔드립니다.
+                  과장 없이, 더 정확하게.
+                </p>
+                <div className="feature-visual">
+                  <div className="fv-convert">
+                    <div className="row">원본 기록</div>
+                    <div className="src">디자인 시안 수정함</div>
+                    <div className="arrow">↓</div>
+                    <div className="row">성과 문장</div>
+                    <div className="dst">
+                      디자인 피드백을 반영해 화면 시안을 개선하고, 후속 검토를 위한 UI 완성도를 높였습니다.
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <article className="feature-card span-2">
+                <span className="feature-tag">03 · METRIC PROMPT</span>
+                <h3 className="feature-title">성과 보강 질문</h3>
+                <p className="feature-desc">수치화에 필요한 질문을 AI가 먼저 제안해드려요.</p>
+                <div className="feature-visual">
+                  <div className="fv-question">
+                    <div className="q">몇 건의 피드백을 정리했나요?</div>
+                    <div className="num-input">
+                      <strong>12건</strong> · 입력됨
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <article className="feature-card span-2">
+                <span className="feature-tag">04 · SKILL TAG</span>
+                <h3 className="feature-title">역량 태그 자동 분류</h3>
+                <p className="feature-desc">협업·리서치·문제 해결 등 역량별로 자동 태깅됩니다.</p>
+                <div className="feature-visual">
+                  <div className="fv-skills">
+                    <span className="chip">협업 커뮤니케이션</span>
+                    <span className="chip">리서치</span>
+                    <span className="chip">문제 정의</span>
+                    <span className="chip">데이터 분석</span>
+                    <span className="chip">문서화</span>
+                    <span className="chip">디자인 시스템</span>
+                  </div>
+                </div>
+              </article>
+
+              <article className="feature-card span-2">
+                <span className="feature-tag">05 · CAREER STACK</span>
+                <h3 className="feature-title">커리어 기록함</h3>
+                <p className="feature-desc">누적된 기록을 이력서·자소서·포트폴리오에 바로 활용하세요.</p>
+                <div className="feature-visual">
+                  <div className="fv-timeline">
+                    <span className="date">5/6</span>
+                    <div className="entry">
+                      <span>피그마 컴포넌트 정리</span>
+                      <span className="mini-chip">협업</span>
+                    </div>
+                    <span className="date">5/7</span>
+                    <div className="entry">
+                      <span>VOC 정리 및 우선순위</span>
+                      <span className="mini-chip">리서치</span>
+                    </div>
+                    <span className="date">5/8</span>
+                    <div className="entry">
+                      <span>화면 플로우 수정</span>
+                      <span className="mini-chip">UX 개선</span>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section className="closing">
+          <div className="closing-pattern" aria-hidden />
+          <div className="cb-container" style={{ fontSize: 16 }}>
+            <h2 style={{ fontSize: 32 }}>
+              오늘의 작은 업무도,
+              <br />
+              미래의 <span className="accent">커리어 증거</span>가 될 수 있어요.
+            </h2>
+            <p className="closing-sub">
+              지금 한 줄만 적어보세요. AI가 성과 문장으로 정리해드릴게요.
+            </p>
+            <div className="closing-cta">
+              <a href="#top" className="btn btn-primary" onClick={onTopCta}>
+                첫 기록 남기기
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 19V5" />
+                  <path d="m5 12 7-7 7 7" />
+                </svg>
+              </a>
+            </div>
           </div>
         </section>
       </main>
 
-      <footer className="border-t border-mono-200/60 mt-auto">
-        <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between text-xs text-mono-400">
-          <span>AI Career Builder</span>
-          <span>Powered by OpenRouter</span>
+      <footer className="footer">
+        <div className="footer-inner">
+          <div>© 2026 Career Builder. 기록되지 않고 사라지는 일을 커리어 성장의 증거로 바꿉니다.</div>
         </div>
       </footer>
+
+      <div
+        className={`cb-modal-backdrop ${modalOpen ? 'show' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) setModalOpen(false)
+        }}
+      >
+        <div className="cb-modal">
+          <div className="cb-modal-logo">CB</div>
+          <h3>
+            커리어 기록함은
+            <br />
+            로그인 후 이용 가능해요
+          </h3>
+          <p>
+            변환된 성과 문장을 안전하게 저장하고,
+            <br />
+            언제든 다시 꺼내볼 수 있어요.
+          </p>
+          <button
+            type="button"
+            className="cb-google-btn"
+            onClick={onGoogleSignIn}
+            disabled={oauthBusy}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+            </svg>
+            {oauthBusy ? '이동 중…' : 'Google로 계속하기'}
+          </button>
+          <button type="button" className="cb-modal-close" onClick={() => setModalOpen(false)}>
+            나중에 할게요
+          </button>
+        </div>
+      </div>
+
+      <div
+        className={`cb-toast ${toastCta ? 'with-cta' : ''} ${toastVisible ? 'show' : ''}`}
+        role="status"
+        aria-live="polite"
+        onMouseEnter={() => {
+          if (toastTimer.current) clearTimeout(toastTimer.current)
+        }}
+        onMouseLeave={() => {
+          if (!toastVisible) return
+          if (toastTimer.current) clearTimeout(toastTimer.current)
+          toastTimer.current = setTimeout(() => setToastVisible(false), 1500)
+        }}
+      >
+        <span className="cb-toast-msg">
+          <span className="check">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+          </span>
+          <span>{toastMsg}</span>
+        </span>
+        {toastCta && (
+          <Link
+            href={toastCta.href}
+            className="cb-toast-cta"
+            onClick={() => track('toast_cta_clicked', { target: toastCta.href })}
+          >
+            {toastCta.label}
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12h14" />
+              <path d="m12 5 7 7-7 7" />
+            </svg>
+          </Link>
+        )}
+      </div>
     </div>
   )
 }
