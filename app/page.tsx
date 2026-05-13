@@ -430,11 +430,7 @@ export default function Home() {
     'User'
   const userInitial = userName.charAt(0).toUpperCase()
 
-  const submitLabel = loading
-    ? '변환 중…'
-    : result || needsInfo
-    ? '다시 변환하기'
-    : '성과 문장으로 바꾸기'
+  const submitLabel = loading ? '변환 중…' : '성과 문장으로 바꾸기'
 
   return (
     <div className="cb-landing cb-landing--snap flex-1 flex flex-col">
