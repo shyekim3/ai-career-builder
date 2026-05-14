@@ -1628,13 +1628,13 @@ body {
   border: 1px solid transparent;
 }
 .cb-landing .entry:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
-.cb-landing .entry.selected { border-color: var(--orange); box-shadow: 0 0 0 1px var(--orange), var(--shadow-sm); }
+.cb-landing .entry.selected { border-color: var(--ink-900); box-shadow: 0 0 0 1px var(--ink-900), var(--shadow-sm); }
 .cb-landing .entry-check {
   display: flex; align-items: center; justify-content: center;
   padding-top: 6px;
 }
 .cb-landing .entry-check input[type="checkbox"] {
-  width: 18px; height: 18px; accent-color: var(--orange); cursor: pointer;
+  width: 18px; height: 18px; accent-color: var(--ink-900); cursor: pointer;
 }
 .cb-landing .entry-date {
   display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
@@ -1811,6 +1811,23 @@ body {
   transition: border-color .15s ease, background .15s ease;
 }
 .cb-landing .project-filter:hover { border-color: var(--ink-300); background: var(--paper); }
+
+.cb-landing .project-filter.is-active {
+  background: var(--orange-soft);
+  border-color: var(--orange-soft);
+}
+.cb-landing .project-filter.is-active:hover,
+.cb-landing .project-filter.is-active:active {
+  background: color-mix(in srgb, var(--orange-soft) 45%, white);
+  border-color: color-mix(in srgb, var(--orange-soft) 55%, white);
+}
+.cb-landing .project-filter.is-active .project-filter-label {
+  color: var(--orange-deep);
+}
+.cb-landing .project-filter.is-active:hover .project-filter-label,
+.cb-landing .project-filter.is-active:active .project-filter-label {
+  color: var(--ink-500);
+}
 .cb-landing .project-filter-label {
   font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
   color: var(--ink-500);
@@ -1963,7 +1980,7 @@ body {
   font-weight: 500; color: var(--ink-900);
 }
 .cb-landing .select-all input[type="checkbox"] {
-  width: 16px; height: 16px; accent-color: var(--orange); cursor: pointer;
+  width: 16px; height: 16px; accent-color: var(--ink-900); cursor: pointer;
 }
 .cb-landing .selection-count {
   color: var(--ink-500); font-weight: 500;

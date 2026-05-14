@@ -825,7 +825,9 @@ export default function HistoryPage() {
                 ))}
               </div>
               <div className="toolbar-right">
-                <label className="project-filter">
+                <label
+                  className={`project-filter ${projectFilter !== 'all' ? 'is-active' : ''}`}
+                >
                   <span className="project-filter-label">프로젝트</span>
                   <select
                     value={projectFilter}
