@@ -884,69 +884,19 @@ export default function Home() {
           <div className="cb-container">
             <div className="section-head">
               <h2>
-                기록할수록,
+                매일 기록할수록,
                 <br />
                 나의 역량 지도가 확장됩니다.
               </h2>
               <p className="lede" style={{ maxWidth: 550 }}>
-                입력은 가볍게, 결과는 전문적으로. Career Builder의 다섯 가지 핵심 기능이
+                입력은 가볍게, 결과는 전문적으로. Career Builder의 세 가지 핵심 기능이
                 매일의 작은 업무를 커리어 자산으로 바꿔드립니다.
               </p>
             </div>
 
             <div className="feature-grid">
-              <article className="feature-card span-3">
-                <span className="feature-tag">Feature 01</span>
-                <h3 className="feature-title">한 줄 업무 기록</h3>
-                <p className="feature-desc">
-                  완벽한 문장이 아니어도 괜찮아요. 회의·수정·조사·공유처럼 떠오르는 대로
-                  짧게 적기만 하면 시작됩니다.
-                </p>
-                <div className="feature-visual">
-                  <div className="fv-input" style={{ marginBottom: 8 }}>
-                    <span className="icon">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 20h9" />
-                        <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4Z" />
-                      </svg>
-                    </span>
-                    경쟁사 UX 조사해서 팀에 공유함
-                  </div>
-                  <div className="fv-input">
-                    <span className="icon">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 20h9" />
-                        <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4Z" />
-                      </svg>
-                    </span>
-                    피그마 컴포넌트 정리하고 개발자에게 전달함
-                    <span className="cursor" />
-                  </div>
-                </div>
-              </article>
-
-              <article className="feature-card span-3">
-                <span className="feature-tag">Feature 02</span>
-                <h3 className="feature-title">AI 성과 변환</h3>
-                <p className="feature-desc">
-                  경력기술서·자기소개서·포트폴리오에 그대로 쓸 수 있는 성과 중심 문장으로 바꿔드립니다.
-                  과장 없이, 더 정확하게.
-                </p>
-                <div className="feature-visual">
-                  <div className="fv-convert">
-                    <div className="row">원본 기록</div>
-                    <div className="src">디자인 시안 수정함</div>
-                    <div className="arrow">↓</div>
-                    <div className="row">성과 문장</div>
-                    <div className="dst">
-                      디자인 피드백을 반영해 화면 시안을 개선하고, 후속 검토를 위한 UI 완성도를 높였습니다.
-                    </div>
-                  </div>
-                </div>
-              </article>
-
               <article className="feature-card span-2">
-                <span className="feature-tag">Feature 03</span>
+                <span className="feature-tag">Feature 01</span>
                 <h3 className="feature-title">성과 보강 질문</h3>
                 <p className="feature-desc">수치화에 필요한 질문을 AI가 먼저 제안해드려요.</p>
                 <div className="feature-visual">
@@ -960,7 +910,7 @@ export default function Home() {
               </article>
 
               <article className="feature-card span-2">
-                <span className="feature-tag">Feature 04</span>
+                <span className="feature-tag">Feature 02</span>
                 <h3 className="feature-title">역량 태그 자동 분류</h3>
                 <p className="feature-desc">협업·리서치·문제 해결 등 역량별로 자동 태깅됩니다.</p>
                 <div className="feature-visual">
@@ -976,7 +926,7 @@ export default function Home() {
               </article>
 
               <article className="feature-card span-2">
-                <span className="feature-tag">Feature 05</span>
+                <span className="feature-tag">Feature 03</span>
                 <h3 className="feature-title">커리어 기록함</h3>
                 <p className="feature-desc">누적된 기록을 이력서·자소서·포트폴리오에 바로 활용하세요.</p>
                 <div className="feature-visual">

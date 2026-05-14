@@ -9,6 +9,9 @@ type PatchBody = {
   projectName?: string | null
   entryDate?: string | null
   metricResult?: string | null
+  metricResultOriginal?: string | null
+  rawText?: string
+  chips?: string[]
 }
 
 export async function DELETE(
@@ -43,7 +46,7 @@ export async function PATCH(
   }
 
   const body = (await req.json()) as PatchBody
-  const update: Record<string, string | null> = {}
+  const update: Record<string, string | string[] | null> = {}
   if ('projectName' in body) {
     const next = (body.projectName ?? '').trim()
     update.project_name = next.length ? next : null
@@ -54,6 +57,20 @@ export async function PATCH(
   if ('metricResult' in body) {
     const next = (body.metricResult ?? '').trim()
     update.metric_result = next.length ? next : null
+  }
+  if ('metricResultOriginal' in body) {
+    const next = (body.metricResultOriginal ?? '').trim()
+    update.metric_result_original = next.length ? next : null
+  }
+  if ('rawText' in body) {
+    const next = (body.rawText ?? '').trim()
+    if (!next.length) {
+      return Response.json({ error: '원본을 비울 수 없습니다.' }, { status: 400 })
+    }
+    update.raw_text = next
+  }
+  if ('chips' in body && Array.isArray(body.chips)) {
+    update.chips = body.chips
   }
   if (Object.keys(update).length === 0) {
     return Response.json({ error: '변경할 항목이 없습니다.' }, { status: 400 })

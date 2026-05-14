@@ -10,6 +10,7 @@ import {
 import type { User } from '@supabase/supabase-js'
 import { createBrowserSupabase, type Entry } from '@/lib/supabase/client'
 import { initMixpanel, track } from '@/lib/mixpanel'
+import { buildMockEntries } from '@/lib/history/mock-entries'
 
 type Status = 'loading' | 'unauthed' | 'loaded' | 'error'
 type ExportFormat = 'copy' | 'markdown'
@@ -143,21 +144,41 @@ export default function HistoryPage() {
   const [editingMetricId, setEditingMetricId] = useState<string | null>(null)
   const [editingMetricValue, setEditingMetricValue] = useState<string>('')
   const [savingMetricId, setSavingMetricId] = useState<string | null>(null)
+  const [editingRawId, setEditingRawId] = useState<string | null>(null)
+  const [editingRawValue, setEditingRawValue] = useState<string>('')
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
   const [toastVisible, setToastVisible] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
+  const [mockActive, setMockActive] = useState(false)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const exportWrapRef = useRef<HTMLDivElement | null>(null)
 
+  // dev 환경에서 실데이터가 0건이면 mock 으로 fallback (?mock=0 으로 비활성)
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'development') return
+    if (typeof window === 'undefined') return
+    const off = new URLSearchParams(window.location.search).get('mock') === '0'
+    if (!off) setMockActive(true)
+  }, [])
+
+  const displayEntries: Entry[] = useMemo(() => {
+    if (entries.length > 0) return entries
+    if (mockActive && status === 'loaded') return buildMockEntries()
+    return entries
+  }, [entries, mockActive, status])
+
+  const isMockView = displayEntries !== entries
+
   const projectOptions = useMemo(() => {
     const set = new Set<string>()
-    entries.forEach((e) => {
+    displayEntries.forEach((e) => {
       const name = e.project_name?.trim()
       if (name) set.add(name)
     })
     return [...set].sort((a, b) => a.localeCompare(b, 'ko'))
-  }, [entries])
+  }, [displayEntries])
 
   const stats = useMemo(() => {
     const now = Date.now()
@@ -168,31 +189,57 @@ export default function HistoryPage() {
       d.setHours(0, 0, 0, 0)
       return d.getTime()
     })()
-    const thisWeek = entries.filter(
+    const thisWeekEntries = displayEntries.filter(
       (e) => new Date(effectiveDate(e)).getTime() >= weekAgo
-    ).length
-    const thisMonth = entries.filter(
+    )
+    const thisMonth = displayEntries.filter(
       (e) => new Date(effectiveDate(e)).getTime() >= monthStart
     ).length
     const skillCount = new Map<string, number>()
-    entries.forEach((e) =>
+    displayEntries.forEach((e) =>
       (e.chips ?? []).forEach((c) =>
         skillCount.set(c, (skillCount.get(c) ?? 0) + 1)
       )
     )
+    const weeklySkillCount = new Map<string, number>()
+    thisWeekEntries.forEach((e) =>
+      (e.chips ?? []).forEach((c) =>
+        weeklySkillCount.set(c, (weeklySkillCount.get(c) ?? 0) + 1)
+      )
+    )
     const sorted = [...skillCount.entries()].sort((a, b) => b[1] - a[1])
+    const weeklySorted = [...weeklySkillCount.entries()].sort(
+      (a, b) => b[1] - a[1]
+    )
     return {
-      total: entries.length,
-      thisWeek,
+      total: displayEntries.length,
+      thisWeek: thisWeekEntries.length,
       thisMonth,
       skillTop5: sorted.slice(0, 5),
       skillsAll: skillCount.size,
       topSkill: sorted[0]?.[0] ?? '-',
+      weeklyTopSkill: weeklySorted[0]?.[0] ?? null,
+      weeklyTopSkillCount: weeklySorted[0]?.[1] ?? 0,
     }
-  }, [entries])
+  }, [displayEntries])
+
+  const todayEntry = useMemo(() => {
+    const today = new Date()
+    const y = today.getFullYear()
+    const m = today.getMonth()
+    const d = today.getDate()
+    return (
+      displayEntries.find((e) => {
+        const t = new Date(effectiveDate(e))
+        return (
+          t.getFullYear() === y && t.getMonth() === m && t.getDate() === d
+        )
+      }) ?? null
+    )
+  }, [displayEntries])
 
   const filtered = useMemo(() => {
-    let list = entries
+    let list = displayEntries
     if (activeFilter !== 'all') {
       list = list.filter((e) => (e.chips ?? []).includes(activeFilter))
     }
@@ -214,7 +261,7 @@ export default function HistoryPage() {
       )
     }
     return list
-  }, [entries, activeFilter, projectFilter, searchTerm])
+  }, [displayEntries, activeFilter, projectFilter, searchTerm])
 
   const selectedInFilteredCount = useMemo(
     () => filtered.reduce((n, e) => n + (selectedIds.has(e.id) ? 1 : 0), 0),
@@ -297,6 +344,9 @@ export default function HistoryPage() {
       projectName?: string | null
       entryDate?: string | null
       metricResult?: string | null
+      metricResultOriginal?: string | null
+      rawText?: string
+      chips?: string[]
     }
   ): Promise<Entry | null> {
     try {
@@ -373,6 +423,58 @@ export default function HistoryPage() {
       track('entry_metric_edited', { id: entry.id })
       showToast('수정 내용이 저장되었습니다')
       closeMetricEditor()
+    }
+  }
+
+  function openRawEditor(entry: Entry) {
+    setEditingRawId(entry.id)
+    setEditingRawValue(entry.raw_text)
+  }
+
+  function closeRawEditor() {
+    setEditingRawId(null)
+    setEditingRawValue('')
+  }
+
+  async function regenerateFromRaw(entry: Entry) {
+    const next = editingRawValue.trim()
+    if (!next || regeneratingId) return
+    if (isMockView) {
+      showToast('데모 모드에서는 다시 변환되지 않아요')
+      closeRawEditor()
+      return
+    }
+    setRegeneratingId(entry.id)
+    setError(null)
+    try {
+      const tr = await fetch('/api/transform', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'metric', text: next }),
+      })
+      const data = await tr.json()
+      if (!tr.ok || data.error) {
+        throw new Error(data.error ?? '변환에 실패했어요')
+      }
+      if (data.type === 'needs_info') {
+        showToast('조금 더 구체적으로 다듬으면 좋아요')
+        return
+      }
+      const updated = await patchEntry(entry.id, {
+        rawText: next,
+        metricResult: data.sentence,
+        metricResultOriginal: data.sentence,
+        chips: data.chips ?? [],
+      })
+      if (updated) {
+        track('entry_regenerated', { id: entry.id })
+        showToast('원본을 반영해 다시 변환했어요')
+        closeRawEditor()
+      }
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setRegeneratingId(null)
     }
   }
 
@@ -514,9 +616,61 @@ export default function HistoryPage() {
     user?.email ??
     'User'
   const userInitial = userName.charAt(0).toUpperCase()
-  const lastSaved = entries[0] ? formatRelative(entries[0].created_at) : '-'
+  const lastSaved = displayEntries[0]
+    ? formatRelative(displayEntries[0].created_at)
+    : '-'
   const datalistId = 'history-project-names'
   const selectedTotal = selectedIds.size
+
+  const weeklyHeadline = (() => {
+    if (stats.weeklyTopSkill) {
+      return `이번 주, ${stats.weeklyTopSkill} 경험 ${stats.weeklyTopSkillCount}건 발견`
+    }
+    if (stats.thisWeek > 0) {
+      return `이번 주, 쌓인 커리어 자산 ${stats.thisWeek}건`
+    }
+    return '이번 주는 아직 조용해요'
+  })()
+  const todayChips = todayEntry?.chips ?? []
+  const todaySentence =
+    todayEntry?.metric_result ?? todayEntry?.raw_text ?? ''
+
+  // Skill Growth — 최근 30일간 chips 빈도 top 5.
+  const skillGrowth = useMemo(() => {
+    const cutoff = Date.now() - 30 * 86400000
+    const count = new Map<string, number>()
+    displayEntries.forEach((e) => {
+      if (new Date(effectiveDate(e)).getTime() < cutoff) return
+      ;(e.chips ?? []).forEach((c) =>
+        count.set(c, (count.get(c) ?? 0) + 1)
+      )
+    })
+    const sorted = [...count.entries()].sort((a, b) => b[1] - a[1])
+    const max = sorted[0]?.[1] ?? 0
+    return { items: sorted.slice(0, 5), max }
+  }, [displayEntries])
+  const skillGrowthCopy = (() => {
+    const top = skillGrowth.items[0]?.[0]
+    if (!top) return null
+    return `최근에는 ${top} 관련 기록이 가장 많이 쌓였어요. 포트폴리오에서는 '${top} 역량' 으로 연결할 수 있어요.`
+  })()
+
+  // Recent Growth Feed — Featured(가장 최근 1건) + 그 다음 7건을 날짜별 group.
+  const feedSlice = filtered.slice(0, 8)
+  const featuredEntry = feedSlice[0] ?? null
+  const timelineGroups = useMemo(() => {
+    const map = new Map<string, Entry[]>()
+    feedSlice.slice(1).forEach((e) => {
+      const d = new Date(effectiveDate(e))
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      const arr = map.get(key) ?? []
+      arr.push(e)
+      map.set(key, arr)
+    })
+    return [...map.entries()]
+  }, [feedSlice])
+  const featuredSentence =
+    featuredEntry?.metric_result ?? featuredEntry?.raw_text ?? ''
 
   return (
     <div className="cb-landing flex flex-col flex-1">
@@ -553,25 +707,28 @@ export default function HistoryPage() {
           padding: '0 32px',
           width: '100%',
         }}
-        className="flex-1"
+        className="flex-1 history-main"
       >
-        <div className="page-head">
-          <h1 style={{ fontSize: 44 }}>기록함</h1>
-          <p className="lede" style={{ marginTop: 12, maxWidth: 560 }}>
-            저장한 성과 문장을 한곳에서 관리하세요. 역량별 자동 분류와 프로젝트별
-            <br />
-            맥락 분류를 함께 활용해 이력서·자소서·포트폴리오로 바로 옮길 수 있습니다.
-          </p>
-          {status === 'loaded' && entries.length > 0 && (
-            <div className="meta-row">
-              <span>
-                총 <strong>{entries.length}</strong> 건의 기록
-              </span>
-              <span className="sep" />
-              <span>
-                최근 저장 <strong>{lastSaved}</strong>
-              </span>
-            </div>
+        <div className="history-hero">
+          {status === 'loaded' && displayEntries.length > 0 ? (
+            <>
+              <h1 className="history-title">
+                지금까지{' '}
+                <span className="accent">{displayEntries.length}건</span>의
+                <br />
+                커리어 성과가 쌓였어요.
+              </h1>
+              <p className="history-sub">
+                누적된 기록을 이력서·자소서·포트폴리오에 바로 활용하세요.
+              </p>
+              {isMockView && <span className="mock-badge">DEMO</span>}
+            </>
+          ) : (
+            <h1 className="history-title">
+              작은 작업들이
+              <br />
+              <span className="accent">커리어 성과</span>로 쌓이고 있어요.
+            </h1>
           )}
         </div>
 
@@ -619,7 +776,7 @@ export default function HistoryPage() {
           </div>
         )}
 
-        {status === 'loaded' && entries.length === 0 && (
+        {status === 'loaded' && displayEntries.length === 0 && (
           <div className="empty">
             <div className="empty-mark">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -645,47 +802,16 @@ export default function HistoryPage() {
           </div>
         )}
 
-        {status === 'loaded' && entries.length > 0 && (
+        {status === 'loaded' && displayEntries.length > 0 && (
           <>
-            <div className="stats">
-              <div className="stat-card accent">
-                <div className="lbl">누적 기록</div>
-                <div className="val">
-                  {stats.total}
-                  <span className="unit">건</span>
-                </div>
-                <div className="delta">이번 주 +{stats.thisWeek}건</div>
-              </div>
-              <div className="stat-card">
-                <div className="lbl">이번 달</div>
-                <div className="val">
-                  {stats.thisMonth}
-                  <span className="unit">건</span>
-                </div>
-              </div>
-              <div className="stat-card">
-                <div className="lbl">연결된 역량</div>
-                <div className="val">
-                  {stats.skillsAll}
-                  <span className="unit">개</span>
-                </div>
-              </div>
-              <div className="stat-card">
-                <div className="lbl">가장 많은 역량</div>
-                <div className="val" style={{ fontSize: 20 }}>
-                  {stats.topSkill}
-                </div>
-              </div>
-            </div>
-
-            <div className="toolbar">
+            <div className="toolbar toolbar--quiet" id="archive">
               <div className="toolbar-left">
                 <button
                   type="button"
                   className={`filter-chip ${activeFilter === 'all' ? 'active' : ''}`}
                   onClick={() => setActiveFilter('all')}
                 >
-                  전체 <span className="count">{entries.length}</span>
+                  전체 <span className="count">{displayEntries.length}</span>
                 </button>
                 {stats.skillTop5.map(([lbl, cnt]) => (
                   <button
@@ -790,7 +916,7 @@ export default function HistoryPage() {
               ))}
             </datalist>
 
-            <div className="entries">
+            <div className="entries archive-list">
               {filtered.length === 0 ? (
                 <div className="empty" style={{ padding: '36px 24px' }}>
                   <div className="empty-mark">
