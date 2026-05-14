@@ -1057,14 +1057,19 @@ body {
   font-size: clamp(32px, 5vw, 44px);
   font-weight: 800; line-height: 1.2; letter-spacing: -0.02em;
   color: var(--ink-900);
+  animation: cb-hero-rise .8s ease-out both;
 }
 .cb-landing .history-title .accent {
   background: linear-gradient(180deg, transparent 62%, var(--orange-soft) 62%);
+  background-size: 0% 100%;
+  background-repeat: no-repeat;
   padding: 0 4px;
+  animation: cb-accent-draw .7s ease-out .55s forwards;
 }
 .cb-landing .history-sub {
   margin-top: 8px;
   font-size: 16px; color: var(--ink-500); line-height: 1.55;
+  animation: cb-hero-rise .8s ease-out .15s both;
 }
 .cb-landing .mock-badge {
   align-self: flex-start;
@@ -1073,6 +1078,29 @@ body {
   padding: 2px 8px; border-radius: 999px;
   background: var(--orange-soft); color: var(--orange-deep);
   font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+  animation: cb-hero-rise .8s ease-out .25s both;
+}
+
+/* 카드/리스트 영역도 살짝 늦게 떠오르며 등장 — 히어로 다음 시선 흐름. */
+.cb-landing .history-main .toolbar.toolbar--quiet,
+.cb-landing .history-main .selection-bar,
+.cb-landing .history-main .archive-list,
+.cb-landing .history-main .gate,
+.cb-landing .history-main .empty {
+  animation: cb-hero-rise .8s ease-out .3s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cb-landing .history-title,
+  .cb-landing .history-sub,
+  .cb-landing .mock-badge,
+  .cb-landing .history-title .accent,
+  .cb-landing .history-main .toolbar.toolbar--quiet,
+  .cb-landing .history-main .selection-bar,
+  .cb-landing .history-main .archive-list,
+  .cb-landing .history-main .gate,
+  .cb-landing .history-main .empty { animation: none; }
+  .cb-landing .history-title .accent { background-size: 100% 100%; }
 }
 
 /* Growth Summary — 3 카드, 텍스트형 해석 */

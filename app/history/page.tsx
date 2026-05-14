@@ -152,8 +152,19 @@ export default function HistoryPage() {
   const [toastVisible, setToastVisible] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
   const [mockActive, setMockActive] = useState(false)
+  const [navScrolled, setNavScrolled] = useState(false)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const exportWrapRef = useRef<HTMLDivElement | null>(null)
+
+  // 홈과 통일: 일정 거리 이상 스크롤되면 nav 에 glass 배경(.scrolled) 활성화.
+  useEffect(() => {
+    function onScroll() {
+      setNavScrolled(window.scrollY > 80)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    onScroll()
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   // dev 환경에서 실데이터가 0건이면 mock 으로 fallback (?mock=0 으로 비활성)
   useEffect(() => {
@@ -674,7 +685,7 @@ export default function HistoryPage() {
 
   return (
     <div className="cb-landing flex flex-col flex-1">
-      <header className="nav">
+      <header className={`nav ${navScrolled ? 'scrolled' : ''}`}>
         <div className="nav-inner">
           <Link href="/" className="brand" aria-label="Career Builder">
             <span className="brand-name">Career Builder</span>
@@ -716,10 +727,10 @@ export default function HistoryPage() {
                 지금까지{' '}
                 <span className="accent">{displayEntries.length}건</span>의
                 <br />
-                커리어 성과가 쌓였어요.
+                커리어 자산이 쌓였어요.
               </h1>
               <p className="history-sub">
-                누적된 기록을 이력서·자소서·포트폴리오에 바로 활용하세요.
+                누적된 성과를 이력서·자소서·포트폴리오에 바로 활용하세요.
               </p>
               {isMockView && <span className="mock-badge">DEMO</span>}
             </>
