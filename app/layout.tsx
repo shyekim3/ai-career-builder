@@ -37,6 +37,9 @@ export const metadata: Metadata = {
     title: TITLE,
     description: DESCRIPTION,
   },
+  other: {
+    "kakao:image": `${SITE_URL}/opengraph-image`,
+  },
 };
 
 export default function RootLayout({

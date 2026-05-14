@@ -32,7 +32,7 @@ export default async function Image() {
         style={{
           width: '100%',
           height: '100%',
-          background: '#FAFAFB',
+          background: '#FEF8F3',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
@@ -40,60 +40,46 @@ export default async function Image() {
           position: 'relative',
         }}
       >
-        {/* hero glow */}
+        {/* eyebrow chips */}
         <div
           style={{
-            position: 'absolute',
-            top: -200,
-            right: -200,
-            width: 760,
-            height: 760,
-            borderRadius: '50%',
-            background:
-              'radial-gradient(circle, rgba(250,92,64,0.38), rgba(250,92,64,0) 70%)',
-            display: 'flex',
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            bottom: -240,
-            left: -240,
-            width: 640,
-            height: 640,
-            borderRadius: '50%',
-            background:
-              'radial-gradient(circle, rgba(11,11,12,0.10), rgba(11,11,12,0) 70%)',
-            display: 'flex',
-          }}
-        />
-
-        {/* eyebrow */}
-        <div
-          style={{
-            fontSize: 26,
-            fontWeight: 600,
-            color: '#2A2A2D',
-            background: '#F2F2F4',
-            padding: '10px 22px',
-            borderRadius: 999,
             display: 'flex',
             alignItems: 'center',
-            gap: 14,
-            alignSelf: 'flex-start',
+            gap: 10,
             marginBottom: 36,
           }}
         >
           <div
             style={{
-              width: 14,
-              height: 14,
-              borderRadius: '50%',
-              background: '#FA5C40',
+              fontSize: 26,
+              fontWeight: 700,
+              letterSpacing: '-0.02em',
+              color: '#0B0B0C',
+              background: '#FFFFFF',
+              padding: '10px 22px',
+              borderRadius: 999,
               display: 'flex',
+              alignItems: 'center',
+              boxShadow: '0 1px 2px rgba(11, 11, 12, 0.04)',
             }}
-          />
-          AI 커리어 기록 서비스
+          >
+            Career Builder
+          </div>
+          <div
+            style={{
+              fontSize: 26,
+              fontWeight: 500,
+              color: '#2A2A2D',
+              background: '#FFFFFF',
+              padding: '10px 22px',
+              borderRadius: 999,
+              display: 'flex',
+              alignItems: 'center',
+              boxShadow: '0 1px 2px rgba(11, 11, 12, 0.04)',
+            }}
+          >
+            AI 커리어 기록 서비스
+          </div>
         </div>
 
         {/* headline */}
@@ -136,22 +122,6 @@ export default async function Image() {
           }}
         >
           AI가 성과 중심 문장으로 바꾸고, 역량별 커리어 자산으로 쌓아드립니다.
-        </div>
-
-        {/* footer brand */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 56,
-            left: 80,
-            fontSize: 26,
-            fontWeight: 700,
-            color: '#0B0B0C',
-            letterSpacing: '-0.02em',
-            display: 'flex',
-          }}
-        >
-          Career Builder
         </div>
       </div>
     ),
