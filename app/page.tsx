@@ -283,13 +283,28 @@ export default function Home() {
     })
     if (isRegenerate) {
       track('transform_regenerated', {
-        reason: 'retry',
+        reason: 'restart',
         attempt_count: transformAttempt.current,
       })
     } else {
       track('transform_requested', { input_length: text.length })
     }
     await runTransform(text, text)
+  }
+
+  // "다른 표현으로 생성" — 이미 받은 결과의 원본(merged)을 그대로 보내되,
+  // 문장 스타일만 다르게 써달라는 지시를 추가해 needs_info 분기를 회피한다.
+  async function onRegenerateStyle() {
+    if (!result || loading) return
+    transformAttempt.current += 1
+    track('transform_regenerated', {
+      reason: 'style_variation',
+      attempt_count: transformAttempt.current,
+    })
+    const hinted =
+      `${result.original}\n\n(앞서 생성된 문장과는 다른 어휘·문장 구조로 표현해 주세요. ` +
+      `사실 관계는 그대로 유지하고, type은 반드시 "result"로 응답합니다.)`
+    await runTransform(hinted, result.original)
   }
 
   async function onRetryWithAnswers() {
@@ -498,7 +513,7 @@ export default function Home() {
                 <div className="cta-input-label">지금 바로 시작해보기</div>
                 <div className="cta-input-question">오늘 어떤 일을 했나요?</div>
                 <div className="cta-input-helper">
-                  완벽하게 쓰지 않아도 괜찮아요. 한 줄이면 충분합니다.
+                  완벽하게 쓰지 않아도 괜찮아요. AI가 성과 질문을 제안해요.
                 </div>
               </div>
 
@@ -530,6 +545,18 @@ export default function Home() {
                 {!loading && result && (
                   <div className="cb-fade-in">
                     <div className="cta-result-body">
+                      <button
+                        type="button"
+                        className="cta-result-copy"
+                        onClick={onCopy}
+                        aria-label="복사"
+                        title="복사"
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path d="M8 8m0 2a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z" />
+                          <path d="M16 8v-2a2 2 0 0 0 -2 -2h-8a2 2 0 0 0 -2 2v8a2 2 0 0 0 2 2h2" />
+                        </svg>
+                      </button>
                       <p className="cta-result-sentence">{result.sentence}</p>
                       {result.chips.length > 0 && (
                         <div className="skill-chips">
@@ -542,55 +569,62 @@ export default function Home() {
                       )}
                     </div>
                     <div className="cta-actions">
-                      <button type="button" className="cta-action-btn" onClick={onCopy}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                        </svg>
-                        복사
-                      </button>
-                      <button
-                        type="button"
-                        className="cta-action-btn primary"
-                        disabled={saveState === 'saving' || saveState === 'saved'}
-                        onClick={onSave}
-                      >
-                        {saveState === 'saving' ? (
-                          <>
-                            <span className="cb-spinner" aria-hidden />
-                            저장 중…
-                          </>
-                        ) : saveState === 'saved' ? (
-                          <>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M20 6 9 17l-5-5" />
-                            </svg>
-                            저장됨
-                          </>
-                        ) : (
-                          <>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                              <polyline points="17 21 17 13 7 13 7 21" />
-                              <polyline points="7 3 7 8 15 8" />
-                            </svg>
-                            저장
-                          </>
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        className="cta-action-btn"
-                        onClick={() => onTransform()}
-                        disabled={loading || !rawText.trim()}
-                        title="현재 입력 내용으로 다시 변환"
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="23 4 23 10 17 10" />
-                          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-                        </svg>
-                        다시 생성
-                      </button>
+                      <div className="cta-actions-row">
+                        <button
+                          type="button"
+                          className="cta-action-btn is-subtle"
+                          onClick={() => onTransform()}
+                          disabled={loading || !rawText.trim()}
+                          title="추가 질문부터 처음 흐름으로 다시 시작"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M9 14l-4 -4l4 -4" />
+                            <path d="M5 10h11a4 4 0 1 1 0 8h-1" />
+                          </svg>
+                          처음부터 다시
+                        </button>
+                        <button
+                          type="button"
+                          className="cta-action-btn is-subtle"
+                          onClick={onRegenerateStyle}
+                          disabled={loading}
+                          title="같은 입력으로 다른 문장 스타일 재생성"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M16 18a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2z" />
+                            <path d="M16 6a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2z" />
+                            <path d="M3 12a6 6 0 0 1 6 -6a6 6 0 0 1 6 6a6 6 0 0 1 -6 6a6 6 0 0 1 -6 -6z" />
+                          </svg>
+                          다른 표현으로 생성
+                        </button>
+                        <button
+                          type="button"
+                          className="cta-action-btn is-subtle"
+                          disabled={saveState === 'saving' || saveState === 'saved'}
+                          onClick={onSave}
+                        >
+                          {saveState === 'saving' ? (
+                            <>
+                              <span className="cb-spinner" aria-hidden />
+                              저장 중…
+                            </>
+                          ) : saveState === 'saved' ? (
+                            <>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                                <path d="M20 6 9 17l-5-5" />
+                              </svg>
+                              저장됨
+                            </>
+                          ) : (
+                            <>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                                <path d="M18 7v14l-6 -4l-6 4v-14a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4z" />
+                              </svg>
+                              저장
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -598,6 +632,9 @@ export default function Home() {
                 {!loading && needsInfo && (
                   <div className="cb-fade-in">
                     <div className="cta-followup-card">
+                      <div className="cta-followup-original">
+                        입력하신 내용: &ldquo;{needsInfo.original}&rdquo;
+                      </div>
                       <div className="cta-followup-intro">
                         몇 가지 정보를 더 알려주시면 더 정확한 성과 문장으로 정리해드릴 수 있어요.
                         모르는 항목은 비워두셔도 됩니다.

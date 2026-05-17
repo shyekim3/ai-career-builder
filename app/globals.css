@@ -42,6 +42,7 @@
   --ink-500: var(--color-ink-500);
   --ink-700: var(--color-ink-700);
   --ink-900: var(--color-ink-900);
+  --color-text-secondary: var(--color-ink-500);
   --paper:   var(--color-paper);
   --orange:  var(--color-orange);
   --orange-soft: var(--color-orange-soft);
@@ -410,12 +411,23 @@ body {
   100% { background-position: -200% 0; }
 }
 .cb-landing .cta-result-body {
+  position: relative;
   background: var(--paper);
   border-radius: 14px;
   padding: 18px 20px;
-  display: flex; flex-direction: column; gap: 14px;
+  display: flex; flex-direction: column; gap: 16px;
 }
-.cb-landing .cta-result-sentence { font-size: 16px; line-height: 1.65; color: var(--ink-900); white-space: pre-wrap; }
+/* 카드 내부 우측 상단 복사 아이콘 — 카드 자체에 inline 동작 부착. */
+.cb-landing .cta-result-copy {
+  position: absolute; top: 12px; right: 12px; left: auto; bottom: auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; padding: 0;
+  background: transparent; border: none; border-radius: 6px;
+  color: var(--color-text-secondary); cursor: pointer;
+  transition: color .15s ease, background .15s ease;
+}
+.cb-landing .cta-result-copy:hover { color: var(--ink-900); background: var(--ink-50); }
+.cb-landing .cta-result-sentence { font-size: 16px; line-height: 1.65; color: var(--ink-900); white-space: pre-wrap; padding-right: 36px; }
 .cb-landing .cta-result-sentence .hl { background: var(--orange-soft); padding: 1px 4px; border-radius: 4px; }
 .cb-landing .skill-chips { display: flex; gap: 6px; flex-wrap: wrap; }
 /* 역량 칩은 단일 톤(부드러운 회색)으로 통일.
@@ -426,7 +438,17 @@ body {
   background: var(--ink-100); color: var(--ink-700);
 }
 
-.cb-landing .cta-actions { margin-top: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cb-landing .cta-actions {
+  margin-top: 20px; display: flex; flex-direction: column;
+  align-items: flex-end;
+}
+.cb-landing .cta-actions-row {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 8px; flex-wrap: wrap;
+  margin: 8px 0;
+}
+.cb-landing .cta-actions-row:first-child { margin-top: 0; }
+.cb-landing .cta-actions-row:last-child { margin-bottom: 0; }
 /* 결과 카드 액션 버튼은 모두 secondary 톤(outline)으로 통일.
    ".primary" variant 도 검정 채움을 버리고 outline 으로 — 메인 CTA(성과 문장으로 바꾸기)와 위계를 구분. */
 .cb-landing .cta-action-btn {
@@ -439,6 +461,17 @@ body {
 .cb-landing .cta-action-btn:hover { border-color: var(--ink-900); background: var(--ink-50); }
 .cb-landing .cta-action-btn:disabled { opacity: .5; cursor: not-allowed; }
 .cb-landing .cta-action-btn.primary { /* alias — secondary 와 동일 톤 */ }
+/* 아이콘 전용 정사각 버튼 (복사/저장). 텍스트 없이 36x36, 가운데 정렬. */
+.cb-landing .cta-action-btn.is-icon {
+  width: 36px; height: 36px; padding: 0; gap: 0;
+  justify-content: center;
+}
+/* 2행(재생성류) 버튼 — 1행 액션(복사/저장)보다 시각 위계를 한 단계 낮춤. */
+.cb-landing .cta-action-btn.is-subtle {
+  font-size: 13px; font-weight: 500;
+  color: var(--color-text-secondary);
+}
+.cb-landing .cta-action-btn.is-subtle:hover { color: var(--ink-900); }
 /* 후속 질문 카드 — AI 응답이 needs_info 일 때 결과 카드 자리에 표시.
    결과(.cta-result-body)와 톤 일치하되 살짝 차분한 ink-50 분기 박스 사용. */
 .cb-landing .cta-followup-card {
@@ -446,6 +479,9 @@ body {
   border-radius: 14px;
   padding: 18px 20px;
   display: flex; flex-direction: column; gap: 14px;
+}
+.cb-landing .cta-followup-original {
+  font-size: 13px; color: var(--color-text-secondary); line-height: 1.5;
 }
 .cb-landing .cta-followup-intro {
   font-size: 14px; color: var(--ink-700); line-height: 1.6;
@@ -987,7 +1023,7 @@ body {
 }
 .cb-landing .fv-question .num-input strong { color: var(--ink-900); font-weight: 600; }
 
-.cb-landing .fv-skills { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start; }
+.cb-landing .fv-skills { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; }
 
 .cb-landing .fv-timeline {
   display: grid; grid-template-columns: 60px 1fr; gap: 10px 14px;
