@@ -599,7 +599,7 @@ export default function Home() {
                         </button>
                         <button
                           type="button"
-                          className="cta-action-btn is-subtle"
+                          className="cta-action-btn is-subtle cta-action-btn--save"
                           disabled={saveState === 'saving' || saveState === 'saved'}
                           onClick={onSave}
                         >

@@ -43,6 +43,9 @@
   --ink-700: var(--color-ink-700);
   --ink-900: var(--color-ink-900);
   --color-text-secondary: var(--color-ink-500);
+  --color-background-primary: var(--color-paper);
+  --color-border-tertiary: var(--color-ink-200);
+  --border-radius-md: 12px;
   --paper:   var(--color-paper);
   --orange:  var(--color-orange);
   --orange-soft: var(--color-orange-soft);
@@ -472,6 +475,27 @@ body {
   color: var(--color-text-secondary);
 }
 .cb-landing .cta-action-btn.is-subtle:hover { color: var(--ink-900); }
+/* 저장 버튼 hover 툴팁 — 버튼 위쪽에 fade in.
+   save 버튼이 행 우측 끝에 있어 left:50% 중앙정렬은 카드 우측(overflow:hidden) 에 잘림.
+   따라서 right:0 으로 버튼 우측 끝 기준 정렬. */
+.cb-landing .cta-action-btn--save { position: relative; }
+.cb-landing .cta-action-btn--save::before {
+  content: "저장하면 문장을 자유롭게 고칠 수 있어요";
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  font-size: 12px;
+  color: var(--paper);
+  background: var(--ink-900);
+  border-radius: var(--border-radius-md);
+  padding: 6px 10px;
+  white-space: nowrap;
+  z-index: 10;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+.cb-landing .cta-action-btn--save:hover::before { opacity: 1; }
 /* 후속 질문 카드 — AI 응답이 needs_info 일 때 결과 카드 자리에 표시.
    결과(.cta-result-body)와 톤 일치하되 살짝 차분한 ink-50 분기 박스 사용. */
 .cb-landing .cta-followup-card {
