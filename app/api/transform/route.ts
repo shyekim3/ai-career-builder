@@ -7,11 +7,14 @@ export const dynamic = 'force-dynamic'
 
 type Body = { mode: 'metric' | 'star'; text: string }
 
+type FollowupItem = { question: string; options?: string[] }
+// LLM 원본 응답은 items 가 string[] 이거나 객체[] 일 수 있음 → 정규화 후 FollowupItem[] 로 보낸다.
+type RawFollowupItem = string | { question?: unknown; options?: unknown } | null | undefined
 type MetricJson =
   | { type: 'result'; sentence: string; chips?: string[] }
   | {
       type: 'needs_info'
-      questions?: { topic: string; items: string[] }[]
+      questions?: { topic: string; items: RawFollowupItem[] }[]
     }
 
 export async function POST(req: NextRequest) {
@@ -32,7 +35,28 @@ export async function POST(req: NextRequest) {
         type: 'needs_info' as const,
         questions: (json.questions ?? []).map((q) => ({
           topic: q.topic ?? '',
-          items: Array.isArray(q.items) ? q.items.filter(Boolean) : [],
+          items: Array.isArray(q.items)
+            ? q.items
+                .map((it) => {
+                  if (typeof it === 'string') {
+                    return { question: it.trim() } as FollowupItem
+                  }
+                  if (it && typeof it === 'object' && typeof it.question === 'string') {
+                    const rawOpts = it.options
+                    const opts = Array.isArray(rawOpts)
+                      ? rawOpts
+                          .filter((o): o is string => typeof o === 'string' && !!o.trim())
+                          .map((o) => o.trim())
+                      : undefined
+                    return {
+                      question: it.question.trim(),
+                      ...(opts && opts.length ? { options: opts } : {}),
+                    } as FollowupItem
+                  }
+                  return null
+                })
+                .filter((it): it is FollowupItem => !!it && !!it.question)
+            : [],
         })),
       })
     }

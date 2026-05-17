@@ -487,6 +487,30 @@ body {
 }
 .cb-landing .cta-followup-a::placeholder { color: var(--ink-400); }
 
+.cb-landing .cta-followup-options {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-top: 2px;
+}
+.cb-landing .cta-followup-chip {
+  font: inherit; font-size: 12px; line-height: 1.3;
+  color: var(--ink-700);
+  background: var(--paper);
+  border: 1px solid var(--ink-200);
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+.cb-landing .cta-followup-chip:hover {
+  border-color: var(--ink-400);
+  color: var(--ink-900);
+}
+.cb-landing .cta-followup-chip.is-active {
+  background: var(--ink-900);
+  border-color: var(--ink-900);
+  color: var(--paper);
+}
+
 .cb-landing .cta-saved-pill {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 12px; font-weight: 600; color: var(--orange);

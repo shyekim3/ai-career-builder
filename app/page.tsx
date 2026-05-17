@@ -6,7 +6,8 @@ import type { User } from '@supabase/supabase-js'
 import { createBrowserSupabase } from '@/lib/supabase/client'
 import { initMixpanel, track } from '@/lib/mixpanel'
 
-type FollowupQuestion = { topic: string; items: string[] }
+type FollowupItem = { question: string; options?: string[] }
+type FollowupQuestion = { topic: string; items: FollowupItem[] }
 type Result = { sentence: string; chips: string[]; ts: string; original: string }
 type NeedsInfo = { questions: FollowupQuestion[]; original: string }
 type SaveState = 'idle' | 'saving' | 'saved'
@@ -300,7 +301,7 @@ export default function Home() {
       q.items.forEach((item, ii) => {
         const a = (answers[answerKey(qi, ii)] ?? '').trim()
         if (a) {
-          blockLines.push(`- ${item} → ${a}`)
+          blockLines.push(`- ${item.question} → ${a}`)
           answered += 1
         }
       })
@@ -606,7 +607,8 @@ export default function Home() {
                           <div className="cta-followup-topic">{q.topic}</div>
                           {q.items.map((item, ii) => {
                             const k = answerKey(qi, ii)
-                            const { main, example } = splitQuestion(item)
+                            const { main, example } = splitQuestion(item.question)
+                            const currentAnswer = answers[k] ?? ''
                             return (
                               <div key={k} className="cta-followup-row">
                                 <label className="cta-followup-q" htmlFor={`fu-${k}`}>
@@ -621,13 +623,32 @@ export default function Home() {
                                   id={`fu-${k}`}
                                   className="cta-followup-a"
                                   type="text"
-                                  value={answers[k] ?? ''}
+                                  value={currentAnswer}
                                   onChange={(e) =>
                                     setAnswers((prev) => ({ ...prev, [k]: e.target.value }))
                                   }
                                   placeholder="답변 입력"
                                   autoComplete="off"
                                 />
+                                {item.options && item.options.length > 0 && (
+                                  <div className="cta-followup-options">
+                                    {item.options.map((opt) => {
+                                      const active = currentAnswer.trim() === opt
+                                      return (
+                                        <button
+                                          key={opt}
+                                          type="button"
+                                          className={`cta-followup-chip${active ? ' is-active' : ''}`}
+                                          onClick={() =>
+                                            setAnswers((prev) => ({ ...prev, [k]: opt }))
+                                          }
+                                        >
+                                          {opt}
+                                        </button>
+                                      )
+                                    })}
+                                  </div>
+                                )}
                               </div>
                             )
                           })}
