@@ -51,6 +51,7 @@ export default function Home() {
   const [toastVisible, setToastVisible] = useState(false)
   const [toastCta, setToastCta] = useState<{ label: string; href: string } | null>(null)
   const [navScrolled, setNavScrolled] = useState(false)
+  const [inputFocused, setInputFocused] = useState(false)
 
   const pendingSave = useRef<{
     rawText: string
@@ -508,7 +509,11 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="cta-card">
+            <div
+              className={`cta-card${
+                inputFocused || result || needsInfo ? ' is-expanded' : ''
+              }`}
+            >
               <div className="cta-input-block">
                 <div className="cta-input-label">지금 바로 시작해보기</div>
                 <div className="cta-input-question">오늘 어떤 일을 했나요?</div>
@@ -722,6 +727,10 @@ export default function Home() {
                   ref={textareaRef}
                   value={rawText}
                   onChange={(e) => onInputChange(e.target.value)}
+                  onFocus={() => setInputFocused(true)}
+                  onBlur={() => {
+                    if (!rawText.trim()) setInputFocused(false)
+                  }}
                   placeholder="예: 회의록 정리하고 수정사항 팀에 공유함"
                   autoComplete="off"
                   rows={1}
@@ -777,9 +786,7 @@ export default function Home() {
                     <span className="pm-note-date">1월 4일</span>
                     <span className="pm-note-line" />
                   </div>
-                  <span className="pm-mark">?</span>
                 </div>
-                <span className="problem-num">Problem 01</span>
                 <h3 className="problem-title">기억이 나지 않아요</h3>
                 <p className="problem-desc">
                   이직이나 지원 시점이 되어서야 “내가 그동안 뭘 했지?”를 다시 떠올리려 합니다.
@@ -802,9 +809,7 @@ export default function Home() {
                       <span className="pm-blank-line short" />
                     </div>
                   </div>
-                  <span className="pm-mark">?</span>
                 </div>
-                <span className="problem-num">Problem 02</span>
                 <h3 className="problem-title">수치화가 어려워요</h3>
                 <p className="problem-desc">
                   업무를 ‘성과’와 ‘지표’ 중심으로 표현하는 일은 생각보다 어렵습니다.
@@ -828,7 +833,6 @@ export default function Home() {
                   </div>
                   <div className="pm-cal-caption">기록한 날 1 · 안 한 날 27</div>
                 </div>
-                <span className="problem-num">Problem 03</span>
                 <h3 className="problem-title">정리가 매일 밀려요</h3>
                 <p className="problem-desc">
                   하루가 끝나면 피곤해서 기록을 미루게 되고, 며칠 후에는 무엇을 적어야 할지조차 잊어버립니다.
@@ -844,7 +848,6 @@ export default function Home() {
                   <span className="pm-tag pm-tag-4">커뮤니케이션?</span>
                   <span className="pm-tag pm-tag-5">···</span>
                 </div>
-                <span className="problem-num">Problem 04</span>
                 <h3 className="problem-title">역량 연결이 안 돼요</h3>
                 <p className="problem-desc">
                   오늘 한 일이 어떤 커리어 강점으로 이어지는지 알기 어렵습니다.
@@ -954,7 +957,6 @@ export default function Home() {
 
             <div className="feature-grid">
               <article className="feature-card span-2">
-                <span className="feature-tag">Feature 01</span>
                 <h3 className="feature-title">성과 보강 질문</h3>
                 <p className="feature-desc">수치화에 필요한 질문을 AI가 먼저 제안해드려요.</p>
                 <div className="feature-visual">
@@ -968,7 +970,6 @@ export default function Home() {
               </article>
 
               <article className="feature-card span-2">
-                <span className="feature-tag">Feature 02</span>
                 <h3 className="feature-title">역량 태그 자동 분류</h3>
                 <p className="feature-desc">협업·리서치·문제 해결 등 역량별로 자동 태깅됩니다.</p>
                 <div className="feature-visual">
@@ -984,7 +985,6 @@ export default function Home() {
               </article>
 
               <article className="feature-card span-2">
-                <span className="feature-tag">Feature 03</span>
                 <h3 className="feature-title">커리어 기록함</h3>
                 <p className="feature-desc">누적된 기록을 이력서·자소서·포트폴리오에 바로 활용하세요.</p>
                 <div className="feature-visual">

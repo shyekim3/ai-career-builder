@@ -273,10 +273,22 @@ body {
 .cb-landing .hero-grid {
   position: relative; z-index: 2;
   max-width: var(--cb-max); margin: 0 auto;
-  display: flex; flex-direction: column; gap: 48px; align-items: flex-start;
+  display: flex; flex-direction: column; gap: 48px;
+  align-items: center; text-align: center;
 }
-.cb-landing .hero-grid .cta-card { width: 100%; max-width: 640px; }
-.cb-landing .hero-copy { padding-top: 16px; }
+.cb-landing .hero-grid .cta-card {
+  width: 100%;
+  max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
+  transition: max-width 0.3s ease;
+}
+.cb-landing .hero-grid .cta-card.is-expanded { max-width: 860px !important; }
+.cb-landing .hero-copy {
+  padding-top: 16px;
+  text-align: center;
+  align-items: center;
+}
 
 /* Hero 타이틀/서브카피 등장 애니메이션 — fade + rise. */
 @keyframes cb-hero-rise {
@@ -321,6 +333,7 @@ body {
 
 /* Hero CTA card */
 .cb-landing .cta-card {
+  text-align: left;
   background: var(--paper);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
