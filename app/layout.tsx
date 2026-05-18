@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { Poppins, Geist_Mono } from "next/font/google";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
 import FeedbackButton from "./_components/FeedbackButton";
+
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 
 const poppinsSans = Poppins({
   variable: "--font-poppins",
@@ -61,6 +64,7 @@ export default function RootLayout({
         {children}
         <FeedbackButton />
       </body>
+      {GA_ID ? <GoogleAnalytics gaId={GA_ID} /> : null}
     </html>
   );
 }
