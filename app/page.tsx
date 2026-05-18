@@ -8,7 +8,7 @@ import { initMixpanel, track } from '@/lib/mixpanel'
 
 type FollowupItem = { question: string; options?: string[] }
 type FollowupQuestion = { topic: string; items: FollowupItem[] }
-type Result = { sentence: string; chips: string[]; ts: string; original: string }
+type Result = { sentence: string; chips: string[]; ts: string; original: string; fromFollowup: boolean }
 type NeedsInfo = { questions: FollowupQuestion[]; original: string }
 type SaveState = 'idle' | 'saving' | 'saved'
 type PendingAfter = 'save' | 'history' | null
@@ -134,6 +134,7 @@ export default function Home() {
             chips: data.chips ?? [],
             ts: new Date().toISOString(),
             original: data.rawText ?? '',
+            fromFollowup: false,
           })
         }
         pendingSave.current = {
@@ -225,7 +226,11 @@ export default function Home() {
     if (!val.trim() && (result || needsInfo)) clearOutputs()
   }
 
-  async function runTransform(textForApi: string, originalForRecord: string) {
+  async function runTransform(
+    textForApi: string,
+    originalForRecord: string,
+    fromFollowup = false,
+  ) {
     setLoading(true)
     setError(null)
     transformStartedAt.current = Date.now()
@@ -256,6 +261,7 @@ export default function Home() {
           chips: data.chips,
           ts: new Date().toISOString(),
           original: originalForRecord,
+          fromFollowup,
         })
         setNeedsInfo(null)
         setSaveState('idle')
@@ -267,7 +273,7 @@ export default function Home() {
     }
   }
 
-  async function onTransform(e?: FormEvent) {
+  async function onTransform(e?: FormEvent, source: 'form' | 'reset' = 'form') {
     e?.preventDefault()
     const text = rawText.trim()
     if (!text) {
@@ -282,7 +288,12 @@ export default function Home() {
       word_count: text.split(/\s+/).length,
       has_numbers: /\d/.test(text),
     })
-    if (isRegenerate) {
+    if (source === 'reset') {
+      track('transform_reset', {
+        had_result: !!result,
+        had_followup: !!result?.fromFollowup || !!needsInfo,
+      })
+    } else if (isRegenerate) {
       track('transform_regenerated', {
         reason: 'restart',
         attempt_count: transformAttempt.current,
@@ -290,7 +301,7 @@ export default function Home() {
     } else {
       track('transform_requested', { input_length: text.length })
     }
-    await runTransform(text, text)
+    await runTransform(text, text, false)
   }
 
   // "다른 표현으로 생성" — 이미 받은 결과의 원본(merged)을 그대로 보내되,
@@ -298,14 +309,14 @@ export default function Home() {
   async function onRegenerateStyle() {
     if (!result || loading) return
     transformAttempt.current += 1
-    track('transform_regenerated', {
-      reason: 'style_variation',
+    track('transform_rephrase', {
       attempt_count: transformAttempt.current,
+      original_input: result.original,
     })
     const hinted =
       `${result.original}\n\n(앞서 생성된 문장과는 다른 어휘·문장 구조로 표현해 주세요. ` +
       `사실 관계는 그대로 유지하고, type은 반드시 "result"로 응답합니다.)`
-    await runTransform(hinted, result.original)
+    await runTransform(hinted, result.original, result.fromFollowup)
   }
 
   async function onRetryWithAnswers() {
@@ -326,17 +337,30 @@ export default function Home() {
         lines.push(...blockLines)
       }
     })
-    track('followup_answered', {
-      questions_total: needsInfo.questions.reduce((n, q) => n + q.items.length, 0),
-      questions_answered: answered,
-    })
     const merged = lines.join('\n')
-    await runTransform(merged, merged)
+    const questionTotal = needsInfo.questions.reduce(
+      (n, q) => n + q.items.length,
+      0,
+    )
+    // 숫자 답변 포함 여부 — 사용자가 입력한 응답 중 하나라도 숫자가 포함됐는지로 판단.
+    // 프롬프트상 3번 질문(options:null)이 수치 질문이지만, 위치에 의존하지 않고 robust 하게 처리.
+    const hasNumericAnswer = Object.values(answers).some((a) => /\d/.test(a))
+    track('followup_submitted', {
+      question_count: questionTotal,
+      answered_count: answered,
+      has_numeric_answer: hasNumericAnswer,
+      input_text: merged,
+    })
+    await runTransform(merged, merged, true)
   }
 
   async function onCopy() {
     if (!result) return
-    track('copy_clicked', { logged_in: !!user, copy_target: 'metric' })
+    track('copy_clicked', {
+      logged_in: !!user,
+      copy_target: 'card_icon',
+      has_followup_answer: !!result.fromFollowup,
+    })
     try {
       await navigator.clipboard.writeText(result.sentence)
     } catch {
@@ -352,7 +376,11 @@ export default function Home() {
 
   async function onSave() {
     if (!result) return
-    track('save_attempted', { logged_in: !!user })
+    track('save_clicked', {
+      logged_in: !!user,
+      has_followup_answer: !!result.fromFollowup,
+      sentence_length: result.sentence.length,
+    })
     if (!user) {
       track('login_prompted', { trigger: 'save_click', provider: 'google' })
       pendingSave.current = {
@@ -578,7 +606,7 @@ export default function Home() {
                         <button
                           type="button"
                           className="cta-action-btn is-subtle"
-                          onClick={() => onTransform()}
+                          onClick={() => onTransform(undefined, 'reset')}
                           disabled={loading || !rawText.trim()}
                           title="추가 질문부터 처음 흐름으로 다시 시작"
                         >
