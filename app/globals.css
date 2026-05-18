@@ -597,8 +597,8 @@ body {
 
 /* Toast */
 .cb-toast {
-  position: fixed; top: 24px; left: 50%;
-  transform: translateX(-50%) translateY(-12px);
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translateX(-50%) translateY(12px);
   background: var(--ink-900); color: var(--paper);
   padding: 12px 20px; border-radius: 999px; font-size: 14px; font-weight: 500;
   box-shadow: var(--shadow-lg); z-index: 200;
